@@ -84,7 +84,7 @@ function makeSend<F extends Function>(type: string, func: F) {
       data: await func(...arg),
     };
     await wsClient.send(JSON.stringify(msg));
-    await wsClient.ping(); // flush message
+    await wsClient.send("{}"); // flush message
     log.info('websocket.makeSend send ', msg);
   };
 }

@@ -49,7 +49,7 @@ async def connect(url, token=None):
 
     log_dbg('websocket.connect', 'start %s' % url)
 
-    stream = await _open_connection(host, port)
+    stream = await _open_connection(host, port, protocol == 'wss')
 
     def send_header(header, *args):
         stream.write(header % args + b'\r\n')
@@ -99,7 +99,7 @@ async def _open_connection(host, port, ssl=False):
         import ssl
         while True:
             try:
-                sock = ssl.wrap_socket(sock)
+                sock = ssl.wrap_socket(sock, server_hostname=host)
                 break
             except OSError as err:
                 if err.errno != ENOTCONN:
