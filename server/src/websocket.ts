@@ -7,8 +7,8 @@ import * as svc from './service';
 
 const ajv = new Ajv()
 
-const server = new WebSocketServer({
-  port: 22548,
+export const wsServer = new WebSocketServer({
+  noServer: true,
 });
 
 let wsClient: WebSocket | null = null;
@@ -28,7 +28,7 @@ function setIpAddress(ip: any) {
   }
 }
 
-server.on('connection', async function onConnection(ws, req) {
+wsServer.on('connection', async function onConnection(ws, req) {
   const ip = req.headers['wake-on-mcu-ip'] as any;
   const mac =req.headers['wake-on-mcu-mac'] as any;
   log.info('websocket.onConnection', 'connection incoming', ip, mac);
@@ -79,10 +79,13 @@ function makeSend<F extends Function>(type: string, func: F) {
     if (!wsClient) {
       throw new Error('No connection');
     }
-    await wsClient.send(JSON.stringify({
+    const msg = {
       type,
       data: await func(...arg),
-    }));
+    };
+    await wsClient.send(JSON.stringify(msg));
+    await wsClient.ping(); // flush message
+    log.info('websocket.makeSend send ', msg);
   };
 }
 
@@ -90,6 +93,7 @@ function makeReceive<F extends Function>(schema: any, func: F) {
   const validate = ajv.compile(schema);
   return async (msg: any) => {
     const { data } = msg;
+    log.info('websocket.makeReceive recv', msg);
     if (!validate(data)) {
       throw new Error(`Invalid message ${JSON.stringify(validate.errors)}`);
     }
