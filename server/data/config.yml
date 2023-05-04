@@ -1,0 +1,15 @@
+DEBUG_LOG: true
+
+SERVER_TOKEN_KEY: the-key-same-as-mcu
+SERVER_TOKEN_EXPIRED: 300
+
+TIAN_API_KEY: '' # public holiday API https://www.tianapi.com/
+TIME_ZONE: Asia/Shanghai
+
+DEVICES:
+- name: Name # device name
+  ip: 192.168.0.1 # device ip address
+  mac: "00:11:22:DD:EE:FF" # device mac address
+  workday: [+18:30, -1:00] #  wakeup and shutdown plan on workday, +xx:00 means wakeup, -xx:00 means shutdown
+  holiday: [+9:00, -2:00] # wakeup and shutdown plan on holiday
+  anyday: [+9:00, -2:00] # wakeup and shutdown plan on the day unknown workday or holiday

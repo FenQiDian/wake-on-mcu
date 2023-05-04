@@ -1,0 +1,11 @@
+# nodejs
+node_modules
+bin
+*.db
+
+# python
+.idea
+*.bin
+
+#rust
+target

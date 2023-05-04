@@ -1,0 +1,14 @@
+[Unit]
+Description=Wake on mcu agent
+
+[Service]
+Type=forking
+User=root
+ExecStart=/home/nan/wake-on-mcu/agent/target/release/womagent
+KillSignal=SIGTERM
+
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
