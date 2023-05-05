@@ -74,7 +74,7 @@ wsServer.on('connection', async function onConnection(ws, req) {
 });
 
 type Arguments<F extends Function> = F extends (...args: infer A) => any ? A : never;
-function makeSend<F extends Function>(type: string, func: F) {
+function makeSend<F extends Function>(type: string, times: number, func: F) {
   return async (...arg: Arguments<F>) => {
     if (!wsClient) {
       throw new Error('No connection');
@@ -83,8 +83,11 @@ function makeSend<F extends Function>(type: string, func: F) {
       type,
       data: await func(...arg),
     };
-    await wsClient.send(JSON.stringify(msg));
-    await wsClient.send("{}"); // flush message
+    for (let i = 0; i < times; i++) {
+      await wsClient.send(JSON.stringify(msg));
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+    await wsClient.send(`{"type":"flush", "data": "${'0'.repeat(64)}"}`); // flush message
     log.info('websocket.makeSend send ', msg);
   };
 }
@@ -101,7 +104,7 @@ function makeReceive<F extends Function>(schema: any, func: F) {
   };
 }
 
-const config = makeSend('config', async () => {
+const config = makeSend('config', 1, async () => {
   return {
     devices: DEVICES,
     days: await svc.queryDays(7),
@@ -119,6 +122,7 @@ const onReport = makeReceive({
   }
 });
 
-export const startup = makeSend('startup', async (name: string) => name);
+export const wakeup = makeSend('wakeup', 2, async (name: string) => name);
 
-export const shutdown = makeSend('shutdown', async (name: string) => name);
+export const shutdown = makeSend('shutdown', 2, async (name: string) => name);
+

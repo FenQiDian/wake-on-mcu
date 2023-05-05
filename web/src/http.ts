@@ -79,11 +79,11 @@ export async function getInfos(): Promise<AllInfos> {
   };
 }
 
-export async function startup(name: string) {
+export async function wakeup(name: string) {
   try {
     const res = await axios({
       method: 'POST',
-      url: '/command/startup',
+      url: '/command/wakeup',
       params: { name },
       headers: { 'wake-on-mcu-token': signToken() },
     });

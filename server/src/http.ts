@@ -50,31 +50,31 @@ http.get('/infos', async (_req, res) => {
   }
 });
 
-http.post('/command/startup', async (req, res) => {
+http.post('/command/wakeup', async (req, res) => {
   try {
     const name = req.query['name'] as any;
     if (typeof name !== 'string') {
       res.status(401);
       res.json({ error: 'Invalid request' });
-      log.error('/command/startup', 401);
+      log.error('/command/wakeup', 401);
       return;
     }
   
     if (!await svc.existDevice(name)) {
       res.status(404);
       res.json({ error: 'Device not found' });
-      log.error('/command/startup', 404, name);
+      log.error('/command/wakeup', 404, name);
       return
     }
   
-    await ws.startup(name);
+    await ws.wakeup(name);
     res.json({ error: null });
-    log.info('/command/startup', name);
+    log.info('/command/wakeup', name);
 
   } catch (err) {
     res.status(500);
     res.json({ error: 'Server inner error' });
-    log.error('/command/startup', err);
+    log.error('/command/wakeup', err);
   }
 });
 

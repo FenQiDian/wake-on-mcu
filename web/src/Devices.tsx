@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Button, Flex, Grid, Heading, Spacer, Text, useToast } from "@chakra-ui/react"
-import { getInfos, startup, shutdown, AllInfos, McuInfo, DeviceInfo } from './http';
+import { getInfos, wakeup, shutdown, AllInfos, McuInfo, DeviceInfo } from './http';
 
 const COLOR_RUNNING = 'linear-gradient(to right, #74ebd5 0%, #9face6 100%)';
 const COLOR_STOPPED = 'linear-gradient(to right, #ff9a9e 0%, #fad0c4 100%)';
@@ -76,10 +76,10 @@ function Device(props: { info: DeviceInfo }) {
   const toast = useToast();
 
   async function onStartUp(name: string) {
-    if (await startup(name)) {
+    if (await wakeup(name)) {
       toast({
         title: `Success`,
-        description: `Send startup to ${name} done.`,
+        description: `Send wakeup to ${name} done.`,
         status: 'success',
         duration: 6000,
         isClosable: true,
@@ -87,7 +87,7 @@ function Device(props: { info: DeviceInfo }) {
     } else {
       toast({
         title: `Failure`,
-        description: `Send startup to ${name} failed.`,
+        description: `Send wakeup to ${name} failed.`,
         status: 'error',
         duration: 6000,
         isClosable: true,

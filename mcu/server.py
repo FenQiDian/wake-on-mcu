@@ -111,11 +111,11 @@ class Server:
                         config2.save(pkt.get('data'))
                         self._ready.set()
 
-                    elif pkt.get('type') == 'startup':
-                        self._worker_chan.send(('startup', pkt.get('data')))
+                    elif pkt.get('type') == 'wakeup':
+                        self._worker_chan.send(pkt)
 
                     elif pkt.get('type') == 'shutdown':
-                        self._worker_chan.send(('shutdown', pkt.get('data')))
+                        self._worker_chan.send(pkt)
 
                 else:
                     pass

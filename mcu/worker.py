@@ -2,7 +2,7 @@ import re
 import time
 import uasyncio as asyncio
 
-from consts import WAKER_TICK
+from consts import WORKER_TICK, WORKER_OFFSET
 from config2 import config2
 from utils import rtc, Channel, log_dbg, log_info, log_err, log_err_if
 from monitor import monitor
@@ -29,7 +29,7 @@ class Worker:
 
         while True:
             timestamp = time.time()
-            await asyncio.sleep(timestamp % WAKER_TICK)
+            await asyncio.sleep(timestamp % WORKER_TICK)
 
             year, month, day, _, hour, minute = rtc.datetime()[:6]
             date = "%04d-%02d-%02d" % (year, month, day)
@@ -38,9 +38,9 @@ class Worker:
 
             for name, dev in config2.devices():
                 try:
-                    startup = dev.check_startup(date, time_prev, time_now)
-                    if startup and not monitor.is_running(name):
-                        log_dbg('Worker._by_time', name, config2.day(date), 'startup')
+                    wakeup = dev.check_startup(date, time_prev, time_now)
+                    if wakeup and not monitor.is_running(name):
+                        log_dbg('Worker._by_time', name, config2.day(date), 'wakeup')
                         await send_wol(dev.mac)
                         continue
 
@@ -60,15 +60,23 @@ class Worker:
     async def _by_remote(self):
         while True:
             try:
-                opt, name = await self._chan.recv()
+                pkt = await self._chan.recv()
+                opt = pkt.get('type')
+                data = pkt.get('data')
+                if not data:
+                    continue
+                name = data.get('name')
+                time = data.get('time')
+                if abs(time.time() - time) > WORKER_OFFSET:
+                    continue
 
                 dev = config2.device(name)
                 if not dev:
                     log_err('Worker._by_remote', 'invalid name', name)
                     continue
 
-                if opt == 'startup':
-                    log_info('Worker._by_remote', 'startup', name)
+                if opt == 'wakeup':
+                    log_info('Worker._by_remote', 'wakeup', name)
                     await send_wol(dev.mac)
 
                 elif opt == 'shutdown':

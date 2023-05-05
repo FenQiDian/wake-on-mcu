@@ -19,7 +19,7 @@ fn main() -> Result<()> {
             .append(true)
             .create(true)
             .open(path)?;
-        builder.target(env_logger::Target::Pipe(Box::new(file)));
+        builder.target(Target::Pipe(Box::new(file)));
 
     } else if env::consts::OS == "windows" {
         let file = OpenOptions::new()
@@ -27,7 +27,7 @@ fn main() -> Result<()> {
             .append(true)
             .create(true)
             .open("/var/log/womagent.log")?;
-        builder.target(env_logger::Target::Pipe(Box::new(file)));
+        builder.target(Target::Pipe(Box::new(file)));
     }
 
     builder
@@ -110,7 +110,6 @@ mod platform {
                             .arg("-h")
                             .arg("now")
                             .spawn()?;
-                        return Ok(());
                     },
                 }
             }
@@ -196,10 +195,9 @@ mod platform {
                             .arg("/s")
                             .arg("/f")
                             .arg("/t")
-                            .arg("/0")
+                            .arg("0")
                             .spawn()
                             .expect("shutdown failed");
-                        return Ok(());
                     },
                 }
             }

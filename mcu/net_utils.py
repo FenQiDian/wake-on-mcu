@@ -8,24 +8,35 @@ import time
 import uasyncio as asyncio
 
 from config import WLAN_SSID, WLAN_KEY, BOARD_CAST, TIME_ZONE
-from utils import rtc, log_dbg, log_info
+from utils import rtc, log_dbg, log_info, ip2int, int2ip
 
 EPOCH_YEAR = time.gmtime(0)[0]
 EPOCH_OFFSET = 0
 if EPOCH_YEAR == 1970:
     EPOCH_OFFSET = 946684800
 
+IP = None
+MASK = None
+BOARDCAST = None
+GATEWAY = None
+DNS = None
+
 def connect_wlan():
     log_info('connect_wlan', 'connect to wlan', WLAN_SSID)
     wlan = network.WLAN(network.STA_IF)
     wlan.active(True)
     wlan.scan()
+    
     if not wlan.isconnected():
         wlan.connect(WLAN_SSID, WLAN_KEY)
         log_dbg('connect_wlan', 'wlan connecting', WLAN_SSID)
     while not wlan.isconnected():
         time.sleep(1) # wait wifi ready
     log_info('connect_wlan', 'wlan connected', WLAN_SSID)
+
+    global IP, MASK, BOARDCAST, GATEWAY, DNS
+    IP, MASK, GATEWAY, DNS = wlan.ifconfig()
+    BOARDCAST = int2ip(ip2int(IP) | (~ip2int(MASK)))
 
 def check_wlan():
     try:
