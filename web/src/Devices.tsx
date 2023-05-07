@@ -2,9 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { Box, Button, Flex, Grid, Heading, Spacer, Text, useToast } from "@chakra-ui/react"
 import { getInfos, wakeup, shutdown, AllInfos, McuInfo, DeviceInfo } from './http';
 
-const COLOR_RUNNING = 'linear-gradient(to right, #74ebd5 0%, #9face6 100%)';
-const COLOR_STOPPED = 'linear-gradient(to right, #ff9a9e 0%, #fad0c4 100%)';
-
 const GREY = '#b2bec3';
 const RED = '#ef476f';
 const YELLOW = '#ffc43d'
@@ -32,6 +29,17 @@ function Devices() {
   const column = Math.max(1, Math.min(screenColumn, dataColumn, MAX_COLUMN));
   const width = CARD_WIDTH * column + CARD_GAP * (column - 1);
 
+  const devices = (allInfos?.devices || []).sort((a: DeviceInfo, b: DeviceInfo) => {
+    if (a.status !== b.status) {
+      return a.status === 'running' ? -1 : 1;
+    } else {
+      if (a.wom !== b.wom) {
+        return a.wom ? -1 : 1;
+      }
+      return a.ip.localeCompare(b.ip);
+    }
+  });
+
   return (
     <Flex direction="column" minHeight="100%">
       <Spacer flex="1" minHeight={`${CARD_GAP}px`} />
@@ -41,7 +49,7 @@ function Devices() {
         gap={`${CARD_GAP}px`}
       >
         { !allInfos ? null : <Mcu info={allInfos?.mcu} /> }
-        { allInfos?.devices.map((device, idx) => <Device key={idx} info={device} />) }
+        { devices.map((device, idx) => <Device key={idx} info={device} />) }
       </Grid>
       <Spacer flex="2" minHeight={`${CARD_GAP * 2}px`} />
     </Flex>
@@ -117,7 +125,11 @@ function Device(props: { info: DeviceInfo }) {
 
   let color = GREY;
   if (props.info.status === 'running') {
-    color = GREEN;
+    if (props.info.wom) {
+      color = GREEN;
+    } else {
+      color = YELLOW;
+    }
   } else if (props.info.status === 'stopped') {
     color = RED;
   }

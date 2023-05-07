@@ -22,6 +22,7 @@ export function signToken(tokenKey: string = '') {
 }
 
 export async function testToken(tokenKey: string = '') {
+  // return true;
   try {
     const res = await axios({
       method: 'GET',
@@ -54,6 +55,50 @@ export type AllInfos = {
 } | null;
 
 export async function getInfos(): Promise<AllInfos> {
+  // return {
+  //   mcu: {
+  //     name: "MCU",
+  //     ip: '192.168.0.4',
+  //     status: 'online',
+  //   },
+  //   devices: [
+  //     {
+  //       name: 'Mini',
+  //       wom: true,
+  //       ip: '192.168.0.3',
+  //       mac: '',
+  //       status: 'running',
+  //     },
+  //     {
+  //       name: 'Desktop',
+  //       wom: true,
+  //       ip: '192.168.0.5',
+  //       mac: '',
+  //       status: 'running',
+  //     },
+  //     {
+  //       name: 'TV1',
+  //       wom: false,
+  //       ip: '192.168.0.50',
+  //       mac: '',
+  //       status: 'running',
+  //     },
+  //     {
+  //       name: 'TV2',
+  //       wom: false,
+  //       ip: '192.168.0.50',
+  //       mac: '',
+  //       status: 'stopped',
+  //     },
+  //     {
+  //       name: 'TV3',
+  //       wom: false,
+  //       ip: '192.168.0.50',
+  //       mac: '',
+  //       status: 'running',
+  //     },
+  //   ],
+  // };
   const res = await axios({
     method: 'GET',
     url: '/infos',

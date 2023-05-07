@@ -50,7 +50,8 @@ class Worker:
                         await send_shutdown(dev.ip)
                         continue
 
-                    log_dbg('Worker._by_time', name, config2.day(date), 'ignore')
+                    if dev.has_schedule():
+                        log_dbg('Worker._by_time', name, config2.day(date), 'ignore')
 
                 except Exception as ex:
                     now = time.time()

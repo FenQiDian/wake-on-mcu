@@ -7,7 +7,7 @@ let LIST_ALL: sqlite3.Statement;
 let EXIST_DEVICE: sqlite3.Statement;
 let UPDATE_RUNNING: sqlite3.Statement;
 let UPDATE_STOPPED: sqlite3.Statement;
-let UPDATE_STARTUP: sqlite3.Statement;
+let UPDATE_WAKEUP: sqlite3.Statement;
 let UPDATE_SHUTDOWN: sqlite3.Statement;
 
 (async () => {
@@ -18,7 +18,7 @@ let UPDATE_SHUTDOWN: sqlite3.Statement;
         ip VARCHAR(12) DEFAULT '' NOT NULL,
         lastRunning INTEGER DEFAULT 0 NOT NULL,
         lastStopped INTEGER DEFAULT 0 NOT NULL,
-        startupAt INTEGER DEFAULT 0 NOT NULL,
+        wakeupAt INTEGER DEFAULT 0 NOT NULL,
         shutdownAt INTEGER DEFAULT 0 NOT NULL
       )
     `, (err) => err ? reject(err) : resolve(null));
@@ -26,10 +26,10 @@ let UPDATE_SHUTDOWN: sqlite3.Statement;
 
   LIST_ALL = db.prepare("SELECT * FROM devices");
   EXIST_DEVICE = db.prepare("SELECT COUNT(*) AS count FROM devices WHERE name = ? LIMIT 1");
-  UPDATE_RUNNING = db.prepare('UPDATE devices SET lastRunning = ? WHERE name = ?');
-  UPDATE_STOPPED = db.prepare('UPDATE devices SET lastStopped = ? WHERE name = ?');
-  UPDATE_STARTUP = db.prepare(`UPDATE devices SET startupAt = ? WHERE name = ?`);
-  UPDATE_SHUTDOWN = db.prepare(`UPDATE devices SET shutdownAt = ? WHERE name = ?`);
+  UPDATE_RUNNING = db.prepare('UPDATE devices SET lastRunning = ?, wakeupAt = 0 WHERE name = ?');
+  UPDATE_STOPPED = db.prepare('UPDATE devices SET lastStopped = ?, shutdownAt = 0 WHERE name = ?');
+  UPDATE_WAKEUP = db.prepare(`UPDATE devices SET wakeupAt = ? WHERE name = ? AND wakeupAt = 0`);
+  UPDATE_SHUTDOWN = db.prepare(`UPDATE devices SET shutdownAt = ? WHERE name = ? AND shutdownAt = 0`);
 
   await initDevices(Object.values(DEVICES));
 })();
@@ -71,6 +71,8 @@ export function listDevices(): Promise<Array<any>> {
         ip: row.ip,
         mac: DEVICES[row.name]?.mac || '',
         status,
+        wakeupDura: status === 'stopped' && row.wakeupAt ? now - row.wakeupAt : 0,
+        shutdownDura: status === 'running' &&  row.shutdownAt ? now - row.shutdownAt : 0,
       });
     }, (err) => err ? reject(err) : resolve(devices));
   });
@@ -92,9 +94,9 @@ export function updateDevice(name: string, status: 'running' | 'stopped') {
   });
 }
 
-export function updateStartup(name: string) {
+export function updateWakeup(name: string) {
   return new Promise((resolve, reject) => {
-    UPDATE_STARTUP.run([nowUnix(), name], (err) => err ? reject(err) : resolve(undefined));
+    UPDATE_WAKEUP.run([nowUnix(), name], (err) => err ? reject(err) : resolve(undefined));
   });
 }
 

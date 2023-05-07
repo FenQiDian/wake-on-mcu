@@ -25,7 +25,9 @@ class Server:
     def get_chan(self):
         return self._chan
 
-    async def ready(self, seconds):
+    async def ready(self, seconds = 0):
+        if self._ready.is_set():
+            return True
         for _ in range(0, seconds):
             if self._ready.is_set():
                 return True
@@ -104,17 +106,19 @@ class Server:
                     return
 
                 elif type(msg) is str:
-                    log_dbg('Server._recv_ws', 'recv', msg)
                     pkt = json.loads(msg)
+                    typ = pkt.get('type')
+                    if typ != 'flush':
+                        log_dbg('Server._recv_ws', 'recv', msg)
 
-                    if pkt.get('type') == 'config':
+                    if typ == 'config':
                         config2.save(pkt.get('data'))
                         self._ready.set()
 
-                    elif pkt.get('type') == 'wakeup':
+                    elif typ == 'wakeup':
                         self._worker_chan.send(pkt)
 
-                    elif pkt.get('type') == 'shutdown':
+                    elif typ == 'shutdown':
                         self._worker_chan.send(pkt)
 
                 else:

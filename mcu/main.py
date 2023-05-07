@@ -35,19 +35,19 @@ async def main():
         machine.reset()
 
 async def change_led():
-    led_wlan = machine.Pin(12, machine.Pin.OUT)
-    led_server = machine.Pin(13, machine.Pin.OUT)
+    led_wlan = machine.PWM(machine.Pin(13, machine.Pin.OUT), freq=500)
+    led_server = machine.PWM(machine.Pin(12, machine.Pin.OUT), freq=500)
 
     while True:
         if check_wlan():
-            led_wlan.off()
+            led_wlan.duty(0)
         else:
-            led_wlan.on()
+            led_wlan.duty(64)
 
-        if server.is_connected():
-            led_server.off()
+        if await server.ready():
+            led_server.duty(0)
         else:
-            led_server.on()
+            led_server.duty(64)
 
         await asyncio.sleep(30)
 

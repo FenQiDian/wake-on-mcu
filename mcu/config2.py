@@ -62,7 +62,7 @@ class Device:
         self.name = device.get('name')
         self.ip = device.get('ip')
         self.mac = device.get('mac')
-        if not self.name or not self.ip or not self.mac:
+        if not self.name or not self.ip:
             raise Exception('Device.__init__', 'invalid device')
         self.workday = self._parse_times(device.get('workday'))
         self.holiday = self._parse_times(device.get('holiday'))
@@ -77,6 +77,9 @@ class Device:
             'holiday': self.holiday,
             'anyday': self.anyday,
         })
+
+    def has_schedule(self):
+        return self.holiday is not None or self.workday is not None or self.anyday is not None
 
     def check_startup(self, date, time_prev, time_now):
         if config2._days.get(date) == 'workday' and self.workday:

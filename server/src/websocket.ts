@@ -49,7 +49,9 @@ wsServer.on('connection', async function onConnection(ws, req) {
   log.info('websocket.onConnection', 'accept connection');
   
   wsClient.on('close', function onClose() {
-    wsClient = null;
+    if (this === wsClient) {
+      wsClient = null;
+    }
     log.info('websocket.onClose', 'remote closed');
   });
 
@@ -114,15 +116,27 @@ const config = makeSend('config', 1, async () => {
 const onReport = makeReceive({
   type: "object",
   additionalProperties: {
-    type: "integer",
+    type: "boolean",
   },
 }, async (data: any) => {
-  for (const [name, failed] of Object.entries(data)) {
-    await svc.updateDevice(name, !failed ? 'running' : 'stopped');
+  for (const [name, running] of Object.entries(data)) {
+    await svc.updateDevice(name, running ? 'running' : 'stopped');
   }
 });
 
-export const wakeup = makeSend('wakeup', 2, async (name: string) => name);
+export const wakeup = makeSend('wakeup', 2, async (name: string) => {
+  await svc.updateWakeup(name);
+  return {
+    name,
+    time: Math.round(Date.now() / 1000),
+  };
+});
 
-export const shutdown = makeSend('shutdown', 2, async (name: string) => name);
+export const shutdown = makeSend('shutdown', 2, async (name: string) => {
+  await svc.updateShutdown(name);
+  return {
+    name,
+    time: Math.round(Date.now() / 1000),
+  };
+});
 

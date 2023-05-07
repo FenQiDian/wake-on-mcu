@@ -40,7 +40,8 @@ class Monitor:
                     self._errors[name] = True
 
             log_dbg('Monitor.run', 'devices status', self._devices)
-            self._server_chan.send(('report', self._devices))
+            report = {name: count == 0 for name, count in self._devices.items()}
+            self._server_chan.send(('report', report))
 
             end = time.ticks_ms()
             sleep = max(MONITOR_TICK * 1000 - (end - begin), 0)

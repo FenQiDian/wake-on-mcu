@@ -22,12 +22,12 @@ export const DEVICES: Record<string, {
   anyday?: Array<string>,
 }> = {};
 for (const dev of C.DEVICES || []) {
-  if (dev.name && dev.ip && dev.mac) {
+  if (dev.name && dev.ip) {
     DEVICES[dev.name] = {
       name: dev.name,
       wom: dev.wom === true || dev.wom === undefined,
       ip: dev.ip,
-      mac: dev.mac,
+      mac: dev.mac || undefined,
       workday: dev.workday || undefined,
       holiday: dev.holiday || undefined,
       anyday: dev.anyday || undefined,

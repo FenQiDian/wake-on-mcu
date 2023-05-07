@@ -19,7 +19,7 @@ function App() {
       </Box>
       <Box w="100vw" h="100vh" background="#e8e8e8">
         <Box h="56px" />
-        <Flex direction="column" align="center" h="calc(100% - 56px)" w="100%">
+        <Flex direction="column" align="center" h="calc(100% - 56px)" w="100%" overflowY="auto">
           {
             login ? <Devices /> : <LoginPage onLogin={setLogin.bind(null, true)} />
           }
