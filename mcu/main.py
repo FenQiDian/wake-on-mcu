@@ -26,7 +26,7 @@ async def main():
             asyncio.create_task(change_led()),
             server_task,
             asyncio.create_task(monitor.run(server.get_chan())),
-            asyncio.create_task(worker.run()),
+            asyncio.create_task(worker.run(monitor.get_event())),
         )
 
     except Exception as ex:

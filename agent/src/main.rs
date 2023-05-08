@@ -21,7 +21,7 @@ fn main() -> Result<()> {
             .open(path)?;
         builder.target(Target::Pipe(Box::new(file)));
 
-    } else if env::consts::OS == "windows" {
+    } else if env::consts::OS == "linux" {
         let file = OpenOptions::new()
             .write(true)
             .append(true)
@@ -85,7 +85,7 @@ mod platform {
             .pid_file("/var/run/womagent.pid") // Every method except `new` and `start`
             .chown_pid_file(true) // is optional, see `Daemonize` documentation
             .working_directory("/tmp") // for default behaviour.
-            .user("nobody")
+            .user("root")
             .start()?;
 
         info!("started ok");

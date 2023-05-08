@@ -1,6 +1,8 @@
 import fs from 'fs';
 import yaml from 'yaml';
 
+export const EPOCH_OFFSET = 946684800;
+
 const file = fs.readFileSync('./data/config.yml', 'utf8');
 const C = yaml.parse(file);
 

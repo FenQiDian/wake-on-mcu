@@ -74,6 +74,9 @@ def sync_ntp_time():
 
     log_info('sync_ntp_time', 'sync time done')
 
+def unix_now():
+    return time.time() - EPOCH_OFFSET - TIME_ZONE * 3600
+
 async def send_wol(mac):
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, 1)

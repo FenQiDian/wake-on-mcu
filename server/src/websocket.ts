@@ -128,7 +128,7 @@ export const wakeup = makeSend('wakeup', 2, async (name: string) => {
   await svc.updateWakeup(name);
   return {
     name,
-    time: Math.round(Date.now() / 1000),
+    time: svc.nowUnix(),
   };
 });
 
@@ -136,7 +136,7 @@ export const shutdown = makeSend('shutdown', 2, async (name: string) => {
   await svc.updateShutdown(name);
   return {
     name,
-    time: Math.round(Date.now() / 1000),
+    time: svc.nowUnix(),
   };
 });
 

@@ -6,7 +6,7 @@ from consts import WORKER_TICK, WORKER_OFFSET
 from config2 import config2
 from utils import rtc, Channel, log_dbg, log_info, log_err, log_err_if
 from monitor import monitor
-from net_utils import send_wol, send_shutdown
+from net_utils import send_wol, send_shutdown, unix_now
 
 class Worker:
     def __init__(self):
@@ -17,10 +17,13 @@ class Worker:
         self._holiday = None
         self._anyday = None
 
+        self._monitor_event = None
+
     def get_chan(self):
         return self._chan
     
-    async def run(self):
+    async def run(self, monitor_event):
+        self._monitor_event = monitor_event
         await asyncio.gather(self._by_time(), self._by_remote())
 
     async def _by_time(self):
@@ -36,18 +39,21 @@ class Worker:
             time_prev = time_now
             time_now = hour * 60 + minute
 
+            change = False
             for name, dev in config2.devices():
                 try:
                     wakeup = dev.check_startup(date, time_prev, time_now)
                     if wakeup and not monitor.is_running(name):
                         log_dbg('Worker._by_time', name, config2.day(date), 'wakeup')
                         await send_wol(dev.mac)
+                        change = True
                         continue
 
                     shutdown = dev.check_shutdown(date, time_prev, time_now)
                     if shutdown and monitor.is_running(name):
                         log_dbg('Worker._by_time', name, config2.day(date), 'shutdown')
                         await send_shutdown(dev.ip)
+                        change = True
                         continue
 
                     if dev.has_schedule():
@@ -57,6 +63,9 @@ class Worker:
                     now = time.time()
                     log_err_if(self._time_err + 300 < now, 'Worker._by_time', name, ex)
                     self._conn_err = now
+
+            if change:
+                self._monitor_event.set()
 
     async def _by_remote(self):
         while True:
@@ -68,7 +77,7 @@ class Worker:
                     continue
                 name = data.get('name')
                 time = data.get('time')
-                if abs(time.time() - time) > WORKER_OFFSET:
+                if abs(unix_now() - time) > WORKER_OFFSET:
                     continue
 
                 dev = config2.device(name)

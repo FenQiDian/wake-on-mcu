@@ -1,17 +1,22 @@
 import time
 import uasyncio as asyncio
 
-from consts import MONITOR_TICK, MONITOR_RETRY_TIMES
+from consts import MONITOR_TICK, MONITOR_QUICK_TICK, MONITOR_QUICK_COUNT , MONITOR_RETRY_TIMES
 from config2 import config2
-from utils import log_dbg, log_err_if
+from utils import log_dbg, log_err_if, EventEx
 from net_utils import do_ping
 
 class Monitor:
     def __init__(self):
         self._version = 0
         self._devices = {}
+        self._event = EventEx(MONITOR_QUICK_TICK * 1000)
+        self._quick = 0
         self._errors = {}
         self._server_chan = None
+
+    def get_event(self):
+        return self._event
     
     async def run(self, server_chan):
         self._server_chan = server_chan
@@ -19,6 +24,8 @@ class Monitor:
         self._sync_change()
         while True:
             begin = time.ticks_ms()
+            if self._quick >= 0:
+                self._quick -= 1
 
             for name, dev in config2.devices():
                 try:
@@ -44,8 +51,9 @@ class Monitor:
             self._server_chan.send(('report', report))
 
             end = time.ticks_ms()
-            sleep = max(MONITOR_TICK * 1000 - (end - begin), 0)
-            await asyncio.sleep_ms(sleep)
+            tick = MONITOR_TICK if self._quick <= 0 else MONITOR_QUICK_TICK
+            if await self._event.wait(tick * 1000 - (end - begin)):
+                self._quick = MONITOR_QUICK_COUNT
 
     def is_running(self, name):
         failed_times = self._devices.get(name)

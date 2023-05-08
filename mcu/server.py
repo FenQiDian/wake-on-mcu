@@ -5,10 +5,10 @@ import time
 import uasyncio as asyncio
 
 from consts import SERVER_RETRY_DURATION
-from config import SERVER_URL, SERVER_TOKEN_KEY, TIME_ZONE
+from config import SERVER_URL, SERVER_TOKEN_KEY
 from config2 import config2
 from utils import Channel, log_dbg, log_err, log_err_if
-from net_utils import EPOCH_OFFSET
+from net_utils import unix_now
 import websocket
 
 class Server:
@@ -129,7 +129,7 @@ class Server:
         log_dbg('Server._recv_ws', 'task exit')
 
 def _sign_token():
-    now = time.time() - EPOCH_OFFSET - TIME_ZONE * 3600
+    now = unix_now()
     raw = b'%d|%s' % (now, SERVER_TOKEN_KEY)
     buf = hashlib.sha256(raw).digest()
     b64 = binascii.b2a_base64(buf)[:-1].decode('utf-8')

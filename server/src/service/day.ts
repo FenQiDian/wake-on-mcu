@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { DateTime } from 'luxon';
 import sqlite3 from 'sqlite3';
-import { TIAN_API_KEY, TIME_ZONE } from '../config';
+import { EPOCH_OFFSET, TIAN_API_KEY, TIME_ZONE } from '../config';
 import { db } from './db';
 
 //////////////////// Model ////////////////////
@@ -96,4 +96,8 @@ export async function queryDays(count: number) {
   }
   
   return days;
+}
+
+export function nowUnix() {
+  return Math.round(Date.now() / 1000) - EPOCH_OFFSET;
 }
