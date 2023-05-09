@@ -1,8 +1,5 @@
-from collections import deque
-
 from machine import RTC
 from re import match
-from uasyncio import Event, sleep_ms
 
 from config import DEBUG_LOG
 
@@ -36,43 +33,6 @@ def log_err_if(cond, fn, *msg):
         print(prefix, *msg)
         print(prefix, *msg, file=_file)
         _file.flush()
-
-class Channel:
-    def __init__(self, size):
-        self._size = size
-        self._event = Event()
-        self._queue = deque((), self._size, 1)
-
-    def send(self, data):
-        prev_len = len(self._queue)
-        if prev_len >= self._size:
-            self._queue.popleft()
-        self._queue.append(data)
-        if prev_len <= 0:
-            self._event.set()
-
-    async def recv(self):
-        if len(self._queue) <= 0:
-            await self._event.wait()
-            self._event.clear()
-        data = self._queue.popleft()
-        return data
-
-class EventEx:
-    def __init__(self, tick_ms = 1000):
-        self._event = Event()
-        self._tick_ms = tick_ms
-
-    def set(self):
-        self._event.set()
-
-    async def wait(self, wait_ms):
-        for _ in range(0, wait_ms, self._tick_ms):
-            await sleep_ms(self._tick_ms)
-            if self._event.is_set():
-                self._event.clear()
-                return True
-        return False
 
 def ip2int(ip):
     res = match(r'(\d+)\.(\d+)\.(\d+)\.(\d+)', ip)

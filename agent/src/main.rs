@@ -193,9 +193,8 @@ mod platform {
                         info!("shutdown request");
                         Command::new("shutdown")
                             .arg("/s")
-                            .arg("/f")
                             .arg("/t")
-                            .arg("0")
+                            .arg("5")
                             .spawn()
                             .expect("shutdown failed");
                     },

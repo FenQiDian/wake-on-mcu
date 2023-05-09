@@ -51,26 +51,23 @@ async def connect(url, token=None):
 
     stream = await _open_connection(host, port, protocol == 'wss')
 
-    def send_header(header, *args):
-        stream.write(header % args + b'\r\n')
-
     # Sec-WebSocket-Key is 16 bytes of random base64 encoded
     key = binascii.b2a_base64(bytes(random.getrandbits(8) for _ in range(16)))[:-1]
 
-    send_header(b'GET %s HTTP/1.1', path or '/')
-    send_header(b'Host: %s:%d', host, port)
-    send_header(b'Connection: Upgrade')
-    send_header(b'Upgrade: websocket')
-    send_header(b'Sec-WebSocket-Key: %s', key)
-    send_header(b'Sec-WebSocket-Version: 13')
-    send_header(b'Origin: %s', url)
+    stream.write(b'GET %s HTTP/1.1\r\n' % (path or '/'))
+    stream.write(b'Host: %s:%d\r\n' % (host, port))
+    stream.write(b'Connection: Upgrade\r\n')
+    stream.write(b'Upgrade: websocket\r\n')
+    stream.write(b'Sec-WebSocket-Key: %s\r\n' % key)
+    stream.write(b'Sec-WebSocket-Version: 13\r\n')
+    stream.write(b'Origin: %s\r\n' % url)
     if token:
-        send_header(b'wake-on-mcu-token: %s', token)
-    send_header(b'')
+        stream.write(b'wake-on-mcu-token: %s\r\n' % token)
+    stream.write(b'\r\n')
 
     await stream.drain()
 
-    header = (await stream.readline())[:-2]
+    header = (await stream.readline())
     if not header.startswith(b'HTTP/1.1 101 '):
         raise Exception('Invalid protocol header')
 
@@ -80,7 +77,7 @@ async def connect(url, token=None):
         header = await stream.readline()
         if header == b"\r\n":
             break
-    log_dbg('websocket.connect', 'connected %s' % url)
+    log_dbg('websocket.connect', 'connected', url)
     
     return WebsocketClient(stream)
 
@@ -164,7 +161,7 @@ class WebsocketClient:
                 elif opcode == OP_BYTES:
                     return buf
 
-    async def _read_frame(self, max_size=None):
+    async def _read_frame(self):
         # Frame header
         byte1, byte2 = struct.unpack('!BB', await self._stream.readexactly(2))
 
@@ -207,7 +204,7 @@ class WebsocketClient:
         elif isinstance(buf, bytes):
             opcode = OP_BYTES
         else:
-            raise TypeError()
+            raise TypeError('invalid buf type')
 
         self._write_frame(opcode, buf)
         await self._stream.drain()
@@ -238,7 +235,7 @@ class WebsocketClient:
             self._stream.write(struct.pack('!BBQ', byte1, byte2, length))
 
         else:
-            raise ValueError()
+            raise ValueError('invalid length')
 
         if mask:  # Mask is 4 bytes
             mask_bits = struct.pack('!I', random.getrandbits(32))

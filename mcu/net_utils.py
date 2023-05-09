@@ -10,6 +10,9 @@ import uasyncio as asyncio
 from config import WLAN_SSID, WLAN_KEY, BOARD_CAST, TIME_ZONE
 from utils import rtc, log_dbg, log_info, ip2int, int2ip
 
+class CustomEx(Exception):
+    pass
+
 EPOCH_YEAR = time.gmtime(0)[0]
 EPOCH_OFFSET = 0
 if EPOCH_YEAR == 1970:
@@ -37,13 +40,6 @@ def connect_wlan():
     global IP, MASK, BOARDCAST, GATEWAY, DNS
     IP, MASK, GATEWAY, DNS = wlan.ifconfig()
     BOARDCAST = int2ip(ip2int(IP) | (~ip2int(MASK)))
-
-def check_wlan():
-    try:
-        wlan = network.WLAN(network.STA_IF)
-        return wlan.isconnected()
-    except:
-        return True
 
 def sync_ntp_time():
     log_info('sync_ntp_time', 'start sync time')
@@ -82,17 +78,22 @@ async def send_wol(mac):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, 1)
         sock.setblocking(False)
 
-        fmt_mac = _format_mac(mac)
-        data = 'FFFFFFFFFFFF' + fmt_mac * 16
-        buf = b''
-        for i in range(0, len(data), 2):
-            buf += struct.pack('B', int(data[i: i + 2], 16))
+        buf = bytearray(6 + 16 * 6)
+        struct.pack_into('6B', buf, 0, (0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF))
+
+        if len(mac) != 17:
+            raise CustomEx('bad mac')
+        mac_num = [0, 0, 0, 0, 0, 0]
+        for idx in range(0, 6):
+            mac_num[idx] = int(mac[idx * 3:idx * 3 + 2], 16)
+        for i in range(0, 16):
+            struct.pack_into('6B', buf, 6 + i * 6, *mac_num)
 
         for _ in range(0, 10): # 1000ms
             try:
                 size = sock.sendto(buf, (BOARD_CAST, 9))
                 if size != len(buf):
-                    raise Exception("bad size")
+                    raise CustomEx("bad size")
                 else:
                     log_dbg('send_wol', mac, 'wol ok')
                     return True
@@ -101,19 +102,13 @@ async def send_wol(mac):
                     raise
                 await asyncio.sleep_ms(100)
         else:
-            raise Exception('timeout')
+            raise CustomEx('timeout')
+
+    except CustomEx as cex:
+        log_info('send_wol', mac, cex)
 
     finally:
         sock.close()
-
-def _format_mac(mac):
-    fmt = ''
-    for ch in mac:
-        if ch != '-' and ch != ':':
-            fmt += ch
-    if len(fmt) != 12:
-        return None
-    return fmt
 
 async def send_shutdown(ip):
     try:
@@ -125,7 +120,7 @@ async def send_shutdown(ip):
             try:
                 size = sock.sendto(buf, (ip, 40004))
                 if size != len(buf):
-                    raise Exception("bad size")
+                    raise CustomEx("bad size")
                 else:
                     log_dbg('send_shutdown', ip, 'shutdown ok')
                     return True
@@ -134,7 +129,10 @@ async def send_shutdown(ip):
                     raise
                 await asyncio.sleep_ms(100)
         else:
-            raise Exception('timeout')
+            raise CustomEx('timeout')
+
+    except CustomEx as cex:
+        log_info('send_shutdown', ip, cex)
 
     finally:
         sock.close()
@@ -173,19 +171,18 @@ async def do_ping(ip):
                     log_dbg('do_ping', ip, 'send ok')
                     break
                 else:
-                    raise Exception("bad size")
+                    raise CustomEx("bad size")
             except OSError as err:
                 if err.errno != EAGAIN:
                     raise
             await asyncio.sleep_ms(100)
         else:
-            log_dbg('do_ping', ip, 'send timeout')
-            return False
+            raise CustomEx("send timeout")
 
         # recv ping
         for _ in range(0, 30): # 3000ms
             try:
-                rbuf = sock.recv(2048)
+                rbuf = sock.recv(256)
                 view = memoryview(rbuf)
                 # 0: ICMP_ECHO_REPLY
                 rpkt = ctypes.struct(ctypes.addressof(view[20:]), PING_PACKET, ctypes.BIG_ENDIAN)
@@ -197,8 +194,11 @@ async def do_ping(ip):
                     raise
                 await asyncio.sleep_ms(100)
         else:
-            log_dbg('do_ping', ip, 'recv timeout')
-            return False
+            raise CustomEx("recv timeout")
+
+    except CustomEx as cex:
+        log_dbg('do_ping', ip, cex)
+        return False
 
     finally:
         sock.close()

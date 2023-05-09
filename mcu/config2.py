@@ -7,25 +7,16 @@ from utils import log_err, log_info
 
 class Config2:
     def __init__(self):
-        self._devices = {}
-        self._days = {}
+        self.devices = {}
+        self.days = {}
         self.version = 0
-    
-    def device(self, name):
-        return self._devices.get(name)
-
-    def devices(self):
-        return self._devices.items()
-
-    def day(self, date):
-        return self._days[date]
 
     def save(self, cfg):
         try:
             self._apply(cfg)
             with open('config2.json', 'w') as file:
                 json.dump(cfg, file)
-                log_info('Config2.save', self._devices, self._days)
+                log_info('Config2.save', self.devices, self.days)
         except Exception as ex:
             log_err('Config2.save', ex)
 
@@ -34,7 +25,7 @@ class Config2:
             with open('config2.json', 'r') as file:
                 cfg = json.load(file)
                 self._apply(cfg)
-                log_info('Config2.load', self._devices, self._days)
+                log_info('Config2.load', self.devices, self.days)
         except Exception as ex:
             log_err('Config2.load', ex)
 
@@ -51,8 +42,8 @@ class Config2:
         for item in cfg.get('days'):
             days[item.get('date')] = item.get('type')
         
-        self._devices = devices
-        self._days = days
+        self.devices = devices
+        self.days = days
         self.version = (self.version + 1) & 0xFFFFFFFF
 
 config2 = Config2()
@@ -82,9 +73,9 @@ class Device:
         return self.holiday is not None or self.workday is not None or self.anyday is not None
 
     def check_startup(self, date, time_prev, time_now):
-        if config2._days.get(date) == 'workday' and self.workday:
+        if config2.days.get(date) == 'workday' and self.workday:
             return self._check_times(self.workday, '+', time_prev, time_now)
-        elif config2._days.get(date) == 'holiday' and self.holiday:
+        elif config2.days.get(date) == 'holiday' and self.holiday:
             return self._check_times(self.holiday, '+', time_prev, time_now)
         elif self.anyday:
             return self._check_times(self.anyday, '+', time_prev, time_now)
@@ -92,9 +83,9 @@ class Device:
             return False
 
     def check_shutdown(self, date, time_prev, time_now):
-        if config2._days.get(date) == 'workday' and self.workday:
+        if config2.days.get(date) == 'workday' and self.workday:
             return self._check_times(self.workday, '-', time_prev, time_now)
-        elif config2._days.get(date) == 'holiday' and self.holiday:
+        elif config2.days.get(date) == 'holiday' and self.holiday:
             return self._check_times(self.holiday, '-', time_prev, time_now)
         elif self.anyday:
             return self._check_times(self.anyday, '-', time_prev, time_now)

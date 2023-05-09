@@ -98,6 +98,6 @@ export async function queryDays(count: number) {
   return days;
 }
 
-export function nowUnix() {
+export function nowEpoch() {
   return Math.round(Date.now() / 1000) - EPOCH_OFFSET;
 }

@@ -1,132 +1,136 @@
 import binascii
+import errno
 import hashlib
 import json
-import time
 import uasyncio as asyncio
 
-from consts import SERVER_RETRY_DURATION
-from config import SERVER_URL, SERVER_TOKEN_KEY
+from config import SERVER_RETRY_DURATION, SERVER_URL, SERVER_TOKEN_KEY
 from config2 import config2
-from utils import Channel, log_dbg, log_err, log_err_if
+from utils import log_dbg, log_err, log_err_if
 from net_utils import unix_now
 import websocket
 
+_RETRY_ERRS = (
+    errno.EAGAIN,
+    errno.ETIMEDOUT,
+    errno.ECONNABORTED,
+    errno.ECONNREFUSED,
+    errno.ECONNRESET,
+    errno.EHOSTUNREACH,
+    errno.EINPROGRESS,
+    118,
+    119,
+)
+
 class Server:
     def __init__(self):
-        self._ready = asyncio.Event()
         self._ws = None
-        self._chan = Channel(10)
-        self._worker_chan = None
-        self._streams = {}
+        self._ready = False
+
+        self._led = None
+        self._worker = None
 
         self._conn_err = False
-        self._loop_err = 0
-
-    def get_chan(self):
-        return self._chan
 
     async def ready(self, seconds = 0):
-        if self._ready.is_set():
+        if self._ready:
             return True
         for _ in range(0, seconds):
-            if self._ready.is_set():
-                return True
             await asyncio.sleep(1)
+            if self._ready:
+                return True
         else:
             return False
 
-    async def run(self, waker_chan):
-        self._worker_chan = waker_chan
+    async def run(self, led, worker):
+        self._led = led
+        self._worker = worker
 
         while True:
-            await self._connect_ws()
+            await self._connect()
+            await self._recv()
 
-            try:
-                t1 = asyncio.create_task(self._send_ws())
-                t2 = asyncio.create_task(self._recv_ws())
-                await asyncio.gather(t1, t2)
-            except Exception as ex:
-                now = time.time()
-                log_err_if(self._loop_err + 300 < now, 'Server.run', 'loop error', ex)
-                self._conn_err = now
-            self._ready.clear()
-
-            try:
-                t1.cancel()
-                t2.cancel()
-            except Exception as ex:
-                log_err('Server.run', 'cancel error', ex)
-
-    async def _connect_ws(self):
+    async def _connect(self):
         sleep = 0
         self._ws = None
+
         while not self._ws:
             try:
                 token = _sign_token()
                 self._ws = await websocket.connect(SERVER_URL, token)
-                log_dbg('Server._connect_ws', 'connect ok')
+                log_dbg('Server._connect', 'connect ok')
 
                 self._conn_err = False
                 return
 
             except Exception as ex:
-                log_err_if(not self._conn_err, 'Server._connect_ws', 'connect error', ex)
+                self._ws = None
+
+                log_err_if(not self._conn_err, 'Server._connect', 'connect error', ex)
                 self._conn_err = True
+
+                if isinstance(ex, OSError) and ex.errno in _RETRY_ERRS:
+                    self._ready = False
+                    self._led.duty(0)
+                else:
+                    raise
 
             sleep = max(sleep + 15, SERVER_RETRY_DURATION)
             await asyncio.sleep(sleep)
 
-    async def _send_ws(self):
+    async def send(self, pkt):
         try:
-            while True:
-                (typ, data) = await self._chan.recv()
+            if not self._ws or not self._ws.open:
+                log_dbg('Server.send', 'connection closed')
+                return
 
-                if not self._ws or not self._ws.open:
-                    log_dbg('Server._send_ws', 'connection closed')
-                    return
+            msg = json.dumps(pkt)
+            log_dbg('Server.send', 'send', msg)
+            await self._ws.send(msg)
 
-                msg = json.dumps({
-                    "type": typ,
-                    "data": data,
-                })
-                log_dbg('Server._send_ws', 'send', msg)
-                await self._ws.send(msg)
+        except Exception as ex:
+            self._ws = None
+            log_err('Server.send', 'send error', ex)
 
-        except asyncio.CancelledError:
-            pass
-        log_dbg('Server._send_ws', 'task exit')
+            if isinstance(ex, OSError) and ex.errno in _RETRY_ERRS:
+                self._ready = False
+                self._led.duty(0)
+            else:
+                raise
     
-    async def _recv_ws(self):
+    async def _recv(self):
         try:
-            while self._ws and self._ws.open:
+            while self._ws:
                 msg = await self._ws.recv()
 
                 if not msg:
-                    log_dbg('Server._recv_ws', 'connection closed')
+                    log_dbg('Server._recv', 'connection closed')
                     return
 
                 elif type(msg) is str:
                     pkt = json.loads(msg)
                     typ = pkt.get('type')
                     if typ != 'flush':
-                        log_dbg('Server._recv_ws', 'recv', msg)
+                        log_dbg('Server._recv', 'recv', msg)
 
                     if typ == 'config':
                         config2.save(pkt.get('data'))
-                        self._ready.set()
+                        self._led.duty(50)
 
-                    elif typ == 'wakeup':
-                        self._worker_chan.send(pkt)
+                    elif typ == 'wakeup' or typ == 'shutdown':
+                        await self._worker.do(pkt)
 
-                    elif typ == 'shutdown':
-                        self._worker_chan.send(pkt)
+        except Exception as ex:
+            self._ws = None
+            log_err_if('Server.recv', 'recv error', ex)
 
-                else:
-                    pass
+            if isinstance(ex, OSError) and ex.errno in _RETRY_ERRS:
+                self._ready = False
+                self._led.duty(0)
+            else:
+                raise
 
-        except asyncio.CancelledError:
-            pass
-        log_dbg('Server._recv_ws', 'task exit')
+        log_dbg('Server._recv', 'task exit')
 
 def _sign_token():
     now = unix_now()

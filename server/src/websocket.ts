@@ -128,7 +128,7 @@ export const wakeup = makeSend('wakeup', 2, async (name: string) => {
   await svc.updateWakeup(name);
   return {
     name,
-    time: svc.nowUnix(),
+    time: svc.nowEpoch(),
   };
 });
 
@@ -136,7 +136,7 @@ export const shutdown = makeSend('shutdown', 2, async (name: string) => {
   await svc.updateShutdown(name);
   return {
     name,
-    time: svc.nowUnix(),
+    time: svc.nowEpoch(),
   };
 });
 
