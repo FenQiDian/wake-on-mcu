@@ -3,6 +3,9 @@ import sqlite3 from 'sqlite3';
 import { DEVICES } from '../config';
 import { db } from './db';
 
+const OFFLINE_TIMEOUT = 120;
+const COMMAND_TIMEOUT = 120;
+
 let LIST_ALL: sqlite3.Statement;
 let EXIST_DEVICE: sqlite3.Statement;
 let UPDATE_RUNNING: sqlite3.Statement;
@@ -28,8 +31,8 @@ let UPDATE_SHUTDOWN: sqlite3.Statement;
   EXIST_DEVICE = db.prepare("SELECT COUNT(*) AS count FROM devices WHERE name = ? LIMIT 1");
   UPDATE_RUNNING = db.prepare('UPDATE devices SET lastRunning = ?, wakeupAt = 0 WHERE name = ?');
   UPDATE_STOPPED = db.prepare('UPDATE devices SET lastStopped = ?, shutdownAt = 0 WHERE name = ?');
-  UPDATE_WAKEUP = db.prepare(`UPDATE devices SET wakeupAt = ? WHERE name = ? AND wakeupAt = 0`);
-  UPDATE_SHUTDOWN = db.prepare(`UPDATE devices SET shutdownAt = ? WHERE name = ? AND shutdownAt = 0`);
+  UPDATE_WAKEUP = db.prepare(`UPDATE devices SET wakeupAt = ?, shutdownAt = 0 WHERE name = ? AND wakeupAt = 0`);
+  UPDATE_SHUTDOWN = db.prepare(`UPDATE devices SET shutdownAt = ?, wakeupAt = 0 WHERE name = ? AND shutdownAt = 0`);
 
   await initDevices(Object.values(DEVICES));
 })();
@@ -61,18 +64,28 @@ export function listDevices(): Promise<Array<any>> {
       if (err) {
         reject(err);
       }
-      let status = 'stopped';
-      if (row.lastRunning > row.lastStopped && row.lastRunning > now - 60) {
-        status = 'running';
+
+      const status = row.lastRunning > row.lastStopped && row.lastRunning > now - OFFLINE_TIMEOUT ?
+        'running' : 'stopped';
+      let command = '';
+      let commandAt = 0;
+      if (row.shutdownAt) {
+        command = 'shutdown';
+        commandAt = row.shutdownAt;
       }
+      if (row.wakeupAt) {
+        command = 'wakeup';
+        commandAt = row.wakeupAt;
+      }
+
       devices.push({
         name: row.name,
         wom: !!DEVICES[row.name]?.wom,
         ip: row.ip,
         mac: DEVICES[row.name]?.mac || '',
         status,
-        wakeupDura: status === 'stopped' && row.wakeupAt ? now - row.wakeupAt : 0,
-        shutdownDura: status === 'running' &&  row.shutdownAt ? now - row.shutdownAt : 0,
+        command,
+        commandAt,
       });
     }, (err) => err ? reject(err) : resolve(devices));
   });

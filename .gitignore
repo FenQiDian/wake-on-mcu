@@ -6,6 +6,7 @@ bin
 # python
 .idea
 venv
+*.mpy
 *.bin
 
 #rust

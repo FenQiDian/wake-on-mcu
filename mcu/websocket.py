@@ -1,36 +1,35 @@
-from errno import EINPROGRESS, ENOTCONN
 from micropython import const
 import binascii
+import errno
 import random
 import re
 import socket
 import struct
-import uasyncio as asyncio
 import uasyncio.core
 import uasyncio.stream
 
-from utils import log_dbg
+import utils as U
 
 # Opcodes
-OP_CONT = const(0x0)
-OP_TEXT = const(0x1)
-OP_BYTES = const(0x2)
-OP_CLOSE = const(0x8)
-OP_PING = const(0x9)
-OP_PONG = const(0xA)
+_OP_CONT = const(0x0)
+_OP_TEXT = const(0x1)
+_OP_BYTES = const(0x2)
+_OP_CLOSE = const(0x8)
+_OP_PING = const(0x9)
+_OP_PONG = const(0xA)
 
 # Close codes
-CLOSE_OK = const(1000)
-CLOSE_GOING_AWAY = const(1001)
-CLOSE_PROTOCOL_ERROR = const(1002)
-CLOSE_DATA_NOT_SUPPORTED = const(1003)
-CLOSE_BAD_DATA = const(1007)
-CLOSE_POLICY_VIOLATION = const(1008)
-CLOSE_TOO_BIG = const(1009)
-CLOSE_MISSING_EXTN = const(1010)
-CLOSE_BAD_CONDITION = const(1011)
+_CLOSE_OK = const(1000)
+_CLOSE_GOING_AWAY = const(1001)
+_CLOSE_PROTOCOL_ERROR = const(1002)
+_CLOSE_DATA_NOT_SUPPORTED = const(1003)
+_CLOSE_BAD_DATA = const(1007)
+_CLOSE_POLICY_VIOLATION = const(1008)
+_CLOSE_TOO_BIG = const(1009)
+_CLOSE_MISSING_EXTN = const(1010)
+_CLOSE_BAD_CONDITION = const(1011)
 
-async def connect(url, token=None):
+async def connect(url, headers=None):
     match = re.match(r'(wss?)://([A-Za-z0-9-\.]+)(?:\:([0-9]+))?(/.*)?', url)
     if not match:
         raise ValueError('Invalid url %s' % url)
@@ -47,7 +46,7 @@ async def connect(url, token=None):
     host = match.group(2)
     path = match.group(4)
 
-    log_dbg('websocket.connect', 'start %s' % url)
+    U.log_dbg('websocket.connect', 'start %s' % url)
 
     stream = await _open_connection(host, port, protocol == 'wss')
 
@@ -61,8 +60,9 @@ async def connect(url, token=None):
     stream.write(b'Sec-WebSocket-Key: %s\r\n' % key)
     stream.write(b'Sec-WebSocket-Version: 13\r\n')
     stream.write(b'Origin: %s\r\n' % url)
-    if token:
-        stream.write(b'wake-on-mcu-token: %s\r\n' % token)
+    if headers:
+        for k, v in headers.items():
+            stream.write(b'%s: %s\r\n' % (k, v))
     stream.write(b'\r\n')
 
     await stream.drain()
@@ -77,34 +77,28 @@ async def connect(url, token=None):
         header = await stream.readline()
         if header == b"\r\n":
             break
-    log_dbg('websocket.connect', 'connected', url)
+    U.log_dbg('websocket.connect', 'connected', url)
     
     return WebsocketClient(stream)
 
 # open_connection with ssl support
-async def _open_connection(host, port, ssl=False):
+def _open_connection(host, port, ssl=False):
     ai = socket.getaddrinfo(host, port, 0, socket.SOCK_STREAM)[0]
     sock = socket.socket(ai[0], ai[1], ai[2])
     sock.setblocking(False)
     try:
         sock.connect(ai[-1])
     except OSError as err:
-        if err.errno != EINPROGRESS:
+        if err.errno != errno.EINPROGRESS:
             raise
 
     if ssl:
         import ssl
-        while True:
-            try:
-                sock = ssl.wrap_socket(sock, server_hostname=host)
-                break
-            except OSError as err:
-                if err.errno != ENOTCONN:
-                    raise
-                await asyncio.sleep_ms(20)
+        sock = ssl.wrap_socket(sock, server_hostname=host)
 
     stream = uasyncio.stream.Stream(sock)
     yield uasyncio.core._io_queue.queue_write(sock)
+    U.log_info('_open_connection', 'yield & return')
     return stream
 
 class WebsocketClient:
@@ -124,29 +118,29 @@ class WebsocketClient:
                 return
 
             # if it's a continuation frame, it's the same data-type
-            if opcode == OP_CONT:
+            if opcode == _OP_CONT:
                 opcode = popcode
             else:
                 buf = bytearray(0)
                 popcode = opcode
 
-            if opcode == OP_TEXT or opcode == OP_BYTES:
+            if opcode == _OP_TEXT or opcode == _OP_BYTES:
                 buf += data
 
-            elif opcode == OP_CLOSE:
+            elif opcode == _OP_CLOSE:
                 self.close()
                 await self.wait_closed()
                 return
 
-            elif opcode == OP_PONG:
+            elif opcode == _OP_PONG:
                 # Ignore this frame, keep waiting for a data frame
                 # note that we are still connected, yah?
                 # if we dont get a pong, we aren't connected.
                 continue
 
-            elif opcode == OP_PING:
+            elif opcode == _OP_PING:
                 # We need to send a pong frame
-                self._write_frame(OP_PONG, data)
+                self._write_frame(_OP_PONG, data)
                 await self._stream.drain()
                 continue
 
@@ -156,9 +150,9 @@ class WebsocketClient:
 
             if fin:
                 # gonna leak a bit since im not clearing the buffer on exit.
-                if opcode == OP_TEXT:
+                if opcode == _OP_TEXT:
                     return buf.decode('utf-8')
-                elif opcode == OP_BYTES:
+                elif opcode == _OP_BYTES:
                     return buf
 
     async def _read_frame(self):
@@ -185,9 +179,9 @@ class WebsocketClient:
             data = await self._stream.readexactly(length)
         except MemoryError:
             # We can't receive this many bytes, close the socket
-            self.close(code=CLOSE_TOO_BIG)
+            self.close(code=_CLOSE_TOO_BIG)
             await self._stream.drain()
-            return True, OP_CLOSE, None
+            return True, _OP_CLOSE, None
 
         if mask:
             data = bytes(b ^ mask_bits[i % 4] for i, b in enumerate(data))
@@ -199,10 +193,10 @@ class WebsocketClient:
             return
 
         if isinstance(buf, str):
-            opcode = OP_TEXT
+            opcode = _OP_TEXT
             buf = buf.encode('utf-8')
         elif isinstance(buf, bytes):
-            opcode = OP_BYTES
+            opcode = _OP_BYTES
         else:
             raise TypeError('invalid buf type')
 
@@ -244,14 +238,14 @@ class WebsocketClient:
 
         self._stream.write(data)
 
-    def close(self, code=CLOSE_OK, reason=''):
+    def close(self, code=_CLOSE_OK, reason=''):
         '''Close the websocket.  Must call await websocket.wait_closed after'''
         if not self.open:
             return
 
         buf = struct.pack('!H', code) + reason.encode('utf-8')
 
-        self._write_frame(OP_CLOSE, buf)
+        self._write_frame(_OP_CLOSE, buf)
         self.open = False
 
     async def wait_closed(self):

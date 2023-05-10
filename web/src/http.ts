@@ -47,6 +47,7 @@ export type DeviceInfo = {
   ip: string,
   mac: string,
   status: string,
+  command: string,
 };
 
 export type AllInfos = {
@@ -68,13 +69,15 @@ export async function getInfos(): Promise<AllInfos> {
   //       ip: '192.168.0.3',
   //       mac: '',
   //       status: 'running',
+  //       command: '',
   //     },
   //     {
   //       name: 'Desktop',
   //       wom: true,
   //       ip: '192.168.0.5',
   //       mac: '',
-  //       status: 'running',
+  //       status: 'stopped',
+  //       command: '',
   //     },
   //     {
   //       name: 'TV1',
@@ -82,6 +85,7 @@ export async function getInfos(): Promise<AllInfos> {
   //       ip: '192.168.0.50',
   //       mac: '',
   //       status: 'running',
+  //       command: 'wakeup-DOING',
   //     },
   //     {
   //       name: 'TV2',
@@ -89,13 +93,15 @@ export async function getInfos(): Promise<AllInfos> {
   //       ip: '192.168.0.50',
   //       mac: '',
   //       status: 'stopped',
+  //       command: 'wakeup-ERROR',
   //     },
   //     {
   //       name: 'TV3',
   //       wom: false,
   //       ip: '192.168.0.50',
   //       mac: '',
-  //       status: 'running',
+  //       status: 'stopped',
+  //       command: 'shutdown-DOING',
   //     },
   //   ],
   // };
@@ -120,8 +126,38 @@ export async function getInfos(): Promise<AllInfos> {
         ip: dev.ip,
         mac: dev.mac,
         status: dev.status,
+        command: dev.command,
       })),
   };
+}
+
+export function recvInfos(callback: (infos: AllInfos) => void) {
+  const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+  const host = window.location.host;
+  const ws = new WebSocket(`${protocol}://${host}/web`, btoa(signToken()!));
+  ws.onmessage = ((ev) => {
+    const pkt = JSON.parse(ev.data);
+    if (pkt.type === 'infos') {
+      callback({
+        mcu: {
+          name: "MCU",
+          ip: pkt.data.muc.ip,
+          status: pkt.data.muc.status,
+        },
+        devices: Object.values(pkt.data.devices)
+          .map((dev: any) => ({
+            name: dev.name,
+            wom: dev.wom,
+            ip: dev.ip,
+            mac: dev.mac,
+            status: dev.status,
+            command: dev.command,
+            commandAt: dev.commandAt,
+          })),
+      });
+    }
+  });
+  return ws;
 }
 
 export async function wakeup(name: string) {

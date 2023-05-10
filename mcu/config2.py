@@ -3,7 +3,7 @@
 import json
 import re
 
-from utils import log_err, log_info
+import utils as U
 
 class Config2:
     def __init__(self):
@@ -16,18 +16,18 @@ class Config2:
             self._apply(cfg)
             with open('config2.json', 'w') as file:
                 json.dump(cfg, file)
-                log_info('Config2.save', self.devices, self.days)
+                U.log_info('Config2.save', self.devices, self.days)
         except Exception as ex:
-            log_err('Config2.save', ex)
+            U.log_err('Config2.save', ex)
 
     def load(self):
         try:
             with open('config2.json', 'r') as file:
                 cfg = json.load(file)
                 self._apply(cfg)
-                log_info('Config2.load', self.devices, self.days)
+                U.log_info('Config2.load', self.devices, self.days)
         except Exception as ex:
-            log_err('Config2.load', ex)
+            U.log_err('Config2.load', ex)
 
     def _apply(self, cfg):
         if not cfg.get('devices'):
@@ -45,8 +45,6 @@ class Config2:
         self.devices = devices
         self.days = days
         self.version = (self.version + 1) & 0xFFFFFFFF
-
-config2 = Config2()
 
 class Device:
     def __init__(self, device):
@@ -110,3 +108,5 @@ class Device:
             if time[0] == sign and time_prev <= time[1] <= time_now:
                 return True
         return False
+
+config2 = Config2()

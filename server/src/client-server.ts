@@ -4,6 +4,7 @@ import { DEVICES } from './config';
 import * as log from './log';
 import * as token from './token';
 import * as svc from './service';
+import * as wsvr from './web-server';
 
 const ajv = new Ajv()
 
@@ -13,9 +14,10 @@ export const wsServer = new WebSocketServer({
 
 let wsClient: WebSocket | null = null;
 let clientIp: string = '';
+let clientLast: number;
 
 export function isConnected() {
-  return !!wsClient;
+  return !!wsClient && Date.now() - clientLast < 180 * 1000;
 }
 
 export function getIpAddress() {
@@ -28,12 +30,15 @@ function setIpAddress(ip: any) {
   }
 }
 
-wsServer.on('connection', async function onConnection(ws, req) {
-  const ip = req.headers['wake-on-mcu-ip'] as any;
-  const mac =req.headers['wake-on-mcu-mac'] as any;
-  log.info('websocket.onConnection', 'connection incoming', ip, mac);
+export function getLastTime() {
+  return clientIp;
+}
 
-  if (!token.verifyToken(req.headers['wake-on-mcu-token'] as any)) {
+wsServer.on('connection', async function onConnection(ws, req) {
+  const ip = req.headers['wom-ip'] as any;
+  log.info('websocket.onConnection', 'connection incoming', ip);
+
+  if (!token.verifyToken(req.headers['wom-token'] as any)) {
     log.info('websocket.onConnection', 'verify token failed');
     log.info('websocket.onConnection', 'close connection');
     ws.close();
@@ -72,6 +77,7 @@ wsServer.on('connection', async function onConnection(ws, req) {
   });
 
   setIpAddress(ip);
+  clientLast = Date.now();
   await config();
 });
 
@@ -122,6 +128,8 @@ const onReport = makeReceive({
   for (const [name, running] of Object.entries(data)) {
     await svc.updateDevice(name, running ? 'running' : 'stopped');
   }
+  clientLast = Date.now();
+  await wsvr.sendInfos();
 });
 
 export const wakeup = makeSend('wakeup', 2, async (name: string) => {

@@ -1,8 +1,10 @@
 import express from 'express';
+import * as uuid from 'uuid';
+import { WebSocketServer, WebSocket } from 'ws';
 import * as log from './log';
 import * as token from './token';
 import * as svc from './service';
-import * as ws from './websocket';
+import * as csvr from './client-server';
 
 export const http = express.Router();
 
@@ -29,18 +31,7 @@ http.get('/test/token', async (_req, res) => {
 
 http.get('/infos', async (_req, res) => {
   try {
-    res.json({
-      muc: {
-        name: "Micro",
-        ip: ws.getIpAddress(),
-        status: ws.isConnected() ? "online" : "offline",
-      },
-      devices: (await svc.listDevices())
-        .map((dev) => ({
-          ...dev,
-          status: ws.isConnected() ? dev.status : "unknown",
-        })),
-    });
+    res.json(await makeInfos());
     log.info('/infos');
 
   } catch (err) {
@@ -49,6 +40,22 @@ http.get('/infos', async (_req, res) => {
     log.error('/test/token', err);
   }
 });
+
+async function makeInfos() {
+  return {
+    muc: {
+      name: "Micro",
+      ip: csvr.getIpAddress(),
+      status: csvr.isConnected() ? "online" : "offline",
+      last: csvr.getLastTime(),
+    },
+    devices: (await svc.listDevices())
+      .map((dev) => ({
+        ...dev,
+        status: csvr.isConnected() ? dev.status : "unknown",
+      })),
+  };
+}
 
 http.post('/command/wakeup', async (req, res) => {
   try {
@@ -67,7 +74,7 @@ http.post('/command/wakeup', async (req, res) => {
       return
     }
   
-    await ws.wakeup(name);
+    await csvr.wakeup(name);
     res.json({ error: null });
     log.info('/command/wakeup', name);
 
@@ -95,7 +102,7 @@ http.post('/command/shutdown', async (req, res) => {
       return
     }
 
-    await ws.shutdown(name);
+    await csvr.shutdown(name);
     log.info('/command/shutdown', name);
     res.json({ error: null });;
 
@@ -105,3 +112,42 @@ http.post('/command/shutdown', async (req, res) => {
     log.error('/command/shutdown', err);
   }
 });
+
+export const wsServer = new WebSocketServer({
+  noServer: true,
+});
+
+export const wsClients = new Map<string, WebSocket>();
+
+wsServer.on('connection', async function onConnection(ws, req) {
+  if (!token.verifyToken(atob(req.headers['sec-websocket-protocol'] as any))) {
+    log.info('websocket.onConnection', 'verify token failed');
+    log.info('websocket.onConnection', 'close connection');
+    ws.close();
+    return;
+  }
+  log.info('websocket.onConnection', 'web');
+
+  const id = uuid.v4();
+  wsClients.set(id, ws);
+
+  ws.on('close', function onClose() {
+    wsClients.delete(id);
+    log.info('websocket.onClose', 'remote closed');
+  });
+
+  ws.send(JSON.stringify({
+    type: 'infos',
+    data: await makeInfos(),    
+  }));
+});
+
+export async function sendInfos() {
+  const msg = JSON.stringify({
+    type: 'infos',
+    data: await makeInfos(),    
+  });
+  for (const ws of wsClients.values()) {
+    ws.send(msg);
+  }
+}

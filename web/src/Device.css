@@ -1,0 +1,11 @@
+@keyframes ani {
+    0% {background-color: #ef476f;}
+    50% {background-color: #06d6a0;}
+    100% {background-color: #ef476f;}
+}
+
+.ani {
+    animation-name: ani;
+    animation-duration: 2s;
+    animation-iteration-count: infinite;
+}
