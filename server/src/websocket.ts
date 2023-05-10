@@ -29,11 +29,10 @@ function setIpAddress(ip: any) {
 }
 
 wsServer.on('connection', async function onConnection(ws, req) {
-  const ip = req.headers['wake-on-mcu-ip'] as any;
-  const mac =req.headers['wake-on-mcu-mac'] as any;
-  log.info('websocket.onConnection', 'connection incoming', ip, mac);
+  const ip = req.headers['wom-ip'] as any;
+  log.info('websocket.onConnection', 'connection incoming', ip);
 
-  if (!token.verifyToken(req.headers['wake-on-mcu-token'] as any)) {
+  if (!token.verifyToken(req.headers['wom-token'] as any)) {
     log.info('websocket.onConnection', 'verify token failed');
     log.info('websocket.onConnection', 'close connection');
     ws.close();

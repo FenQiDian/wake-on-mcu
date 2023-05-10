@@ -5,44 +5,41 @@ import socket
 import struct
 import random
 import time
-import uasyncio as asyncio
+import uasyncio as asio
 
-from config import WLAN_SSID, WLAN_KEY, BOARD_CAST, TIME_ZONE
-from utils import rtc, log_dbg, log_info, ip2int, int2ip
+import config as C
+import utils as U
 
 class CustomEx(Exception):
     pass
 
-EPOCH_YEAR = time.gmtime(0)[0]
-EPOCH_OFFSET = 0
-if EPOCH_YEAR == 1970:
-    EPOCH_OFFSET = 946684800
+EPOCH = 0
+if time.gmtime(0)[0] == 1970:
+    EPOCH = 946684800
 
 IP = None
 MASK = None
 BOARDCAST = None
-GATEWAY = None
-DNS = None
 
 def connect_wlan():
-    log_info('connect_wlan', 'connect to wlan', WLAN_SSID)
+    U.log_info('connect_wlan', 'connect to wlan', C.WLAN_SSID)
     wlan = network.WLAN(network.STA_IF)
     wlan.active(True)
     wlan.scan()
     
     if not wlan.isconnected():
-        wlan.connect(WLAN_SSID, WLAN_KEY)
-        log_dbg('connect_wlan', 'wlan connecting', WLAN_SSID)
+        wlan.connect(C.WLAN_SSID, C.WLAN_KEY)
+        U.log_dbg('connect_wlan', 'wlan connecting', C.WLAN_SSID)
     while not wlan.isconnected():
         time.sleep(1) # wait wifi ready
-    log_info('connect_wlan', 'wlan connected', WLAN_SSID)
+    U.log_info('connect_wlan', 'wlan connected', C.WLAN_SSID)
 
-    global IP, MASK, BOARDCAST, GATEWAY, DNS
-    IP, MASK, GATEWAY, DNS = wlan.ifconfig()
-    BOARDCAST = int2ip(ip2int(IP) | (~ip2int(MASK)))
+    global IP, MASK, BOARDCAST
+    IP, MASK = wlan.ifconfig()[0:2]
+    BOARDCAST = U.int2ip(U.ip2int(IP) | (~U.ip2int(MASK)))
 
 def sync_ntp_time():
-    log_info('sync_ntp_time', 'start sync time')
+    U.log_info('sync_ntp_time', 'start sync time')
 
     query = bytearray(48)
     query[0] = 0x1B
@@ -56,22 +53,23 @@ def sync_ntp_time():
         sock.close()
     ntp_time = struct.unpack("!I", msg[40:44])[0]
 
-    if EPOCH_YEAR == 2000:
+    epoch_year = time.gmtime(0)[0]
+    if epoch_year == 2000:
         # (date(2000, 1, 1) - date(1900, 1, 1)).days * 24*60*60
         delta = 3155673600
-    elif EPOCH_YEAR == 1970:
+    elif epoch_year == 1970:
         # (date(1970, 1, 1) - date(1900, 1, 1)).days * 24*60*60
         delta = 2208988800
     else:
-        raise Exception("Unsupported epoch: {}".format(EPOCH_YEAR))
+        raise Exception("Unsupported epoch: {}".format(epoch_year))
 
-    tm = time.gmtime(ntp_time - delta + TIME_ZONE * 3600)
-    rtc.datetime((tm[0], tm[1], tm[2], tm[6] + 1, tm[3], tm[4], tm[5], 0))
+    tm = time.gmtime(ntp_time - delta + C.TIME_ZONE * 3600)
+    U.rtc.datetime((tm[0], tm[1], tm[2], tm[6] + 1, tm[3], tm[4], tm[5], 0))
 
-    log_info('sync_ntp_time', 'sync time done')
+    U.log_info('sync_ntp_time', 'sync time done')
 
-def unix_now():
-    return time.time() - EPOCH_OFFSET - TIME_ZONE * 3600
+def epoch_now():
+    return time.time() - EPOCH - C.TIME_ZONE * 3600
 
 async def send_wol(mac):
     try:
@@ -79,33 +77,35 @@ async def send_wol(mac):
         sock.setblocking(False)
 
         buf = bytearray(6 + 16 * 6)
-        struct.pack_into('6B', buf, 0, (0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF))
+        struct.pack_into('6B', buf, 0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF)
 
         if len(mac) != 17:
             raise CustomEx('bad mac')
         mac_num = [0, 0, 0, 0, 0, 0]
         for idx in range(0, 6):
             mac_num[idx] = int(mac[idx * 3:idx * 3 + 2], 16)
+        print(mac, mac_num)
         for i in range(0, 16):
             struct.pack_into('6B', buf, 6 + i * 6, *mac_num)
+        print(buf)
 
         for _ in range(0, 10): # 1000ms
             try:
-                size = sock.sendto(buf, (BOARD_CAST, 9))
+                size = sock.sendto(buf, (BOARDCAST, 9))
                 if size != len(buf):
                     raise CustomEx("bad size")
                 else:
-                    log_dbg('send_wol', mac, 'wol ok')
+                    U.log_dbg('send_wol', mac, 'wol ok')
                     return True
             except OSError as err:
                 if err.errno != EAGAIN:
                     raise
-                await asyncio.sleep_ms(100)
+                await asio.sleep_ms(100)
         else:
             raise CustomEx('timeout')
 
     except CustomEx as cex:
-        log_info('send_wol', mac, cex)
+        U.log_info('send_wol', mac, cex)
 
     finally:
         sock.close()
@@ -122,17 +122,17 @@ async def send_shutdown(ip):
                 if size != len(buf):
                     raise CustomEx("bad size")
                 else:
-                    log_dbg('send_shutdown', ip, 'shutdown ok')
+                    U.log_dbg('send_shutdown', ip, 'shutdown ok')
                     return True
             except OSError as err:
                 if err.errno != EAGAIN:
                     raise
-                await asyncio.sleep_ms(100)
+                await asio.sleep_ms(100)
         else:
             raise CustomEx('timeout')
 
     except CustomEx as cex:
-        log_info('send_shutdown', ip, cex)
+        U.log_info('send_shutdown', ip, cex)
 
     finally:
         sock.close()
@@ -168,14 +168,14 @@ async def do_ping(ip):
             try:
                 size = sock.send(sbuf)
                 if size == len(sbuf):
-                    log_dbg('do_ping', ip, 'send ok')
+                    U.log_dbg('do_ping', ip, 'send ok')
                     break
                 else:
                     raise CustomEx("bad size")
             except OSError as err:
                 if err.errno != EAGAIN:
                     raise
-            await asyncio.sleep_ms(100)
+            await asio.sleep_ms(100)
         else:
             raise CustomEx("send timeout")
 
@@ -187,17 +187,17 @@ async def do_ping(ip):
                 # 0: ICMP_ECHO_REPLY
                 rpkt = ctypes.struct(ctypes.addressof(view[20:]), PING_PACKET, ctypes.BIG_ENDIAN)
                 if rpkt.type == 0 and rpkt.id == spkt.id and rpkt.seq == spkt.seq:
-                    log_dbg('do_ping', ip, 'recv ok')
+                    U.log_dbg('do_ping', ip, 'recv ok')
                     return True
             except OSError as err:
                 if err.errno != EAGAIN:
                     raise
-                await asyncio.sleep_ms(100)
+                await asio.sleep_ms(100)
         else:
             raise CustomEx("recv timeout")
 
     except CustomEx as cex:
-        log_dbg('do_ping', ip, cex)
+        U.log_dbg('do_ping', ip, cex)
         return False
 
     finally:

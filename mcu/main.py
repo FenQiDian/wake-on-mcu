@@ -21,7 +21,7 @@ async def main():
         sync_ntp_time()
         config2.load()
 
-        server_task = asyncio.create_task(server.run(worker))
+        server_task = asyncio.create_task(server.run(led_server, worker))
         log_info('main', 'connect to server')
         connected = await server.ready(30)
         led_init.duty(0)

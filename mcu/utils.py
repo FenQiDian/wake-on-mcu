@@ -1,14 +1,14 @@
 from machine import RTC
 from re import match
 
-from config import DEBUG_LOG
+import config as C
 
 rtc = RTC()
 
 _file = open('wom.log', 'a')
 
 def log_dbg(fn, *msg):
-    if DEBUG_LOG:
+    if C.DEBUG:
         (month, day, _, hour, minute, second) = rtc.datetime()[1:-1]
         print("DBG %02d/%02d %d:%d:%d %s:" % (month, day, hour, minute, second, fn), *msg)
 
@@ -27,7 +27,7 @@ def log_err(fn, *msg):
     _file.flush()
 
 def log_err_if(cond, fn, *msg):
-    if DEBUG_LOG or cond:
+    if C.DEBUG or cond:
         (month, day, _, hour, minute, second) = rtc.datetime()[1:-1]
         prefix = "ERR %02d/%02d %d:%d:%d %s:" % (month, day, hour, minute, second, fn)
         print(prefix, *msg)
