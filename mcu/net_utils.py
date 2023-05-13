@@ -10,9 +10,6 @@ import uasyncio as asio
 import config as C
 import utils as U
 
-class CustomEx(Exception):
-    pass
-
 EPOCH = 0
 if time.gmtime(0)[0] == 1970:
     EPOCH = 946684800
@@ -80,7 +77,7 @@ async def send_wol(mac):
         struct.pack_into('6B', buf, 0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF)
 
         if len(mac) != 17:
-            raise CustomEx('bad mac')
+            raise U.CustomEx('bad mac')
         mac_num = [0, 0, 0, 0, 0, 0]
         for idx in range(0, 6):
             mac_num[idx] = int(mac[idx * 3:idx * 3 + 2], 16)
@@ -93,7 +90,7 @@ async def send_wol(mac):
             try:
                 size = sock.sendto(buf, (BOARDCAST, 9))
                 if size != len(buf):
-                    raise CustomEx("bad size")
+                    raise U.CustomEx("bad size")
                 else:
                     U.log_dbg('send_wol', mac, 'wol ok')
                     return True
@@ -102,9 +99,9 @@ async def send_wol(mac):
                     raise
                 await asio.sleep_ms(100)
         else:
-            raise CustomEx('timeout')
+            raise U.CustomEx('timeout')
 
-    except CustomEx as cex:
+    except U.CustomEx as cex:
         U.log_info('send_wol', mac, cex)
 
     finally:
@@ -120,7 +117,7 @@ async def send_shutdown(ip):
             try:
                 size = sock.sendto(buf, (ip, 40004))
                 if size != len(buf):
-                    raise CustomEx("bad size")
+                    raise U.CustomEx("bad size")
                 else:
                     U.log_dbg('send_shutdown', ip, 'shutdown ok')
                     return True
@@ -129,9 +126,9 @@ async def send_shutdown(ip):
                     raise
                 await asio.sleep_ms(100)
         else:
-            raise CustomEx('timeout')
+            raise U.CustomEx('timeout')
 
-    except CustomEx as cex:
+    except U.CustomEx as cex:
         U.log_info('send_shutdown', ip, cex)
 
     finally:
@@ -171,13 +168,13 @@ async def do_ping(ip):
                     U.log_dbg('do_ping', ip, 'send ok')
                     break
                 else:
-                    raise CustomEx("bad size")
+                    raise U.CustomEx("bad size")
             except OSError as err:
                 if err.errno != EAGAIN:
                     raise
             await asio.sleep_ms(100)
         else:
-            raise CustomEx("send timeout")
+            raise U.CustomEx("send timeout")
 
         # recv ping
         for _ in range(0, 30): # 3000ms
@@ -194,9 +191,9 @@ async def do_ping(ip):
                     raise
                 await asio.sleep_ms(100)
         else:
-            raise CustomEx("recv timeout")
+            raise U.CustomEx("recv timeout")
 
-    except CustomEx as cex:
+    except U.CustomEx as cex:
         U.log_dbg('do_ping', ip, cex)
         return False
 

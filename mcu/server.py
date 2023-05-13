@@ -4,6 +4,7 @@ import errno
 import gc
 import hashlib
 import json
+import time
 import uasyncio as asio
 
 import config as C
@@ -12,12 +13,14 @@ import net_utils as N
 import websocket as W
 from config2 import config2
 
-_SERVER_RETRY_DURATION = const(30) # seconds
+_SERVER_RETRY_DURATION = const(60) # seconds
+_SERVER_TIMEOUT = const(180)
 
 class Server:
     def __init__(self):
         self._ws = None
         self._ready = False
+        self._heartbeat = 0
 
         self._led = None
         self._worker = None
@@ -52,6 +55,8 @@ class Server:
         while True:
             await self._connect()
             await self._recv()
+            await asio.sleep(5)
+
 
     async def _connect(self):
         sleep = 0
@@ -70,6 +75,7 @@ class Server:
 
                 self._conn_err = False
                 self._ready = True
+                self._heartbeat = time.time()
                 return
 
             except Exception as ex:
@@ -81,16 +87,25 @@ class Server:
                 if isinstance(ex, OSError) and ex.errno in self._ignores:
                     self._ready = False
                     self._led.duty(50)
+                elif isinstance(ex, U.CustomEx):
+                    self._ready = False
+                    self._led.duty(50)
                 else:
                     raise
 
-            sleep = min(sleep + 5, _SERVER_RETRY_DURATION)
+            sleep = min(sleep + 10, _SERVER_RETRY_DURATION)
             await asio.sleep(sleep)
 
     async def send(self, pkt):
         try:
             if not self._ws or not self._ws.open:
                 U.log_dbg('Server.send', 'connection closed')
+                return False
+
+            if time.time() - self._heartbeat > _SERVER_TIMEOUT:
+                U.log_dbg('Server.send', 'heartbeat loss')
+                self._ws.close()
+                self._ws = None
                 return False
 
             msg = json.dumps(pkt)
@@ -112,7 +127,7 @@ class Server:
     
     async def _recv(self):
         try:
-            while self._ws:
+            while self._ws and self._ws.open:
                 msg = await self._ws.recv()
 
                 if not msg:
@@ -131,6 +146,9 @@ class Server:
 
                     elif typ == 'wakeup' or typ == 'shutdown':
                         await self._worker.do(pkt)
+
+                    elif typ == 'heartbeat':
+                        self._heartbeat = time.time()
 
         except Exception as ex:
             self._ws = None

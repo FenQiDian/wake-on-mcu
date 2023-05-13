@@ -70,7 +70,7 @@ async def connect(url, headers=None):
 
     header = (await stream.readline())
     if not header.startswith(b'HTTP/1.1 101 '):
-        raise Exception('Invalid protocol header')
+        raise U.CustomEx('Invalid protocol header')
 
     # We don't (currently) need these headers
     # FIXME: should we check the return key?

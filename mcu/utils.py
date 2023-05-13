@@ -3,6 +3,9 @@ from re import match
 
 import config as C
 
+class CustomEx(Exception):
+    pass
+
 rtc = RTC()
 
 _file = open('wom.log', 'a')

@@ -35,14 +35,18 @@ class Worker:
                         wakeup = dev.check_startup(date, time_prev, time_now)
                         if wakeup and not self._monitor.devices.get(name):
                             U.log_dbg('Worker._by_time', name, config2.days.get(date), 'wakeup')
-                            await N.send_wol(dev.mac)
+                            for _ in range(0, 3):
+                                await N.send_wol(dev.mac)
+                                await asio.sleep(1)
                             change = True
                             continue
 
                         shutdown = dev.check_shutdown(date, time_prev, time_now)
                         if shutdown and self._monitor.devices.get(name):
                             U.log_dbg('Worker._by_time', name, config2.days.get(date), 'shutdown')
-                            await N.send_shutdown(dev.ip)
+                            for _ in range(0, 3):
+                                await N.send_shutdown(dev.ip)
+                                await asio.sleep(1)
                             change = True
                             continue
 

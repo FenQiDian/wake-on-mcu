@@ -121,19 +121,19 @@ export const wsClients = new Map<string, WebSocket>();
 
 wsServer.on('connection', async function onConnection(ws, req) {
   if (!token.verifyToken(atob(req.headers['sec-websocket-protocol'] as any))) {
-    log.info('websocket.onConnection', 'verify token failed');
-    log.info('websocket.onConnection', 'close connection');
+    log.info('web-ws.onConnection', 'verify token failed');
+    log.info('web-ws.onConnection', 'close connection');
     ws.close();
     return;
   }
-  log.info('websocket.onConnection', 'web');
+  log.info('web-ws.onConnection', 'web');
 
   const id = uuid.v4();
   wsClients.set(id, ws);
 
   ws.on('close', function onClose() {
     wsClients.delete(id);
-    log.info('websocket.onClose', 'remote closed');
+    log.info('web-ws.onClose', 'remote closed');
   });
 
   ws.send(JSON.stringify({

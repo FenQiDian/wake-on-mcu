@@ -3,8 +3,7 @@ import sqlite3 from 'sqlite3';
 import { DEVICES } from '../config';
 import { db } from './db';
 
-const OFFLINE_TIMEOUT = 120;
-const COMMAND_TIMEOUT = 120;
+const OFFLINE_TIMEOUT = 180;
 
 let LIST_ALL: sqlite3.Statement;
 let EXIST_DEVICE: sqlite3.Statement;

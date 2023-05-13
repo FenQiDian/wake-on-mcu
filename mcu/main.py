@@ -41,6 +41,7 @@ async def main():
 
     except Exception as ex:
         U.log_err('main', 'error', ex)
+        await asyncio.sleep(30)
         machine.reset()
 
 asyncio.run(main())

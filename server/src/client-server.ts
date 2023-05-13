@@ -6,7 +6,10 @@ import * as token from './token';
 import * as svc from './service';
 import * as wsvr from './web-server';
 
-const ajv = new Ajv()
+const HEARTBEAT_INTERVAL = 120 * 1000;
+const CLIENT_TIMEOUT = 180 * 1000;
+
+const ajv = new Ajv();
 
 export const wsServer = new WebSocketServer({
   noServer: true,
@@ -16,8 +19,14 @@ let wsClient: WebSocket | null = null;
 let clientIp: string = '';
 let clientLast: number;
 
+setInterval(() => {
+  if (wsClient) {
+    wsClient.send(`{"type":"heartbeat", "data": "${'0'.repeat(32)}"}`);
+  }
+}, HEARTBEAT_INTERVAL);
+
 export function isConnected() {
-  return !!wsClient && Date.now() - clientLast < 180 * 1000;
+  return !!wsClient && Date.now() - clientLast < CLIENT_TIMEOUT;
 }
 
 export function getIpAddress() {
@@ -36,28 +45,28 @@ export function getLastTime() {
 
 wsServer.on('connection', async function onConnection(ws, req) {
   const ip = req.headers['wom-ip'] as any;
-  log.info('websocket.onConnection', 'connection incoming', ip);
+  log.info('client-ws.onConnection', 'connection incoming', ip);
 
   if (!token.verifyToken(req.headers['wom-token'] as any)) {
-    log.info('websocket.onConnection', 'verify token failed');
-    log.info('websocket.onConnection', 'close connection');
+    log.info('client-ws.onConnection', 'verify token failed');
+    log.info('client-ws.onConnection', 'close connection');
     ws.close();
     return;
   }
   
   if (wsClient) {
-    log.info('websocket.onConnection', 'close old connection');
+    log.info('client-ws.onConnection', 'close old connection');
     wsClient.close();
     wsClient = null;
   }
   wsClient = ws;
-  log.info('websocket.onConnection', 'accept connection');
+  log.info('client-ws.onConnection', 'accept connection');
   
   wsClient.on('close', function onClose() {
     if (this === wsClient) {
       wsClient = null;
     }
-    log.info('websocket.onClose', 'remote closed');
+    log.info('client-ws.onClose', 'remote closed');
   });
 
   wsClient.on('message', async function onMessage(pkt, isBinary) {
@@ -67,12 +76,12 @@ wsServer.on('connection', async function onConnection(ws, req) {
         if (msg?.type === 'report') {
           await onReport(msg);
         } else {
-          log.error('websocket.onMessage', `invalid message ${JSON.stringify(msg)}`);
+          log.error('client-ws.onMessage', `invalid message ${JSON.stringify(msg)}`);
         }
       }
 
     } catch (err) {
-      log.error('websocket.onMessage', err);
+      log.error('client-ws.onMessage', err);
     }
   });
 
@@ -95,8 +104,8 @@ function makeSend<F extends Function>(type: string, times: number, func: F) {
       await wsClient.send(JSON.stringify(msg));
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
-    await wsClient.send(`{"type":"flush", "data": "${'0'.repeat(64)}"}`); // flush message
-    log.info('websocket.makeSend send ', msg);
+    await wsClient.send(`{"type":"heartbeat", "data": "${'0'.repeat(32)}"}`); // flush message
+    log.info('client-ws.makeSend send ', msg);
   };
 }
 
@@ -104,7 +113,7 @@ function makeReceive<F extends Function>(schema: any, func: F) {
   const validate = ajv.compile(schema);
   return async (msg: any) => {
     const { data } = msg;
-    log.info('websocket.makeReceive recv', msg);
+    log.info('client-ws.makeReceive recv', msg);
     if (!validate(data)) {
       throw new Error(`Invalid message ${JSON.stringify(validate.errors)}`);
     }

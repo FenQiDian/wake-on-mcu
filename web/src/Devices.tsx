@@ -23,11 +23,18 @@ function Devices() {
 
     let last = Date.now();
 
-    const ws = recvInfos((infos) => {
+    let ws = recvInfos((infos) => {
       setAllInfos(infos);
       last = Date.now();
     });
+    ws.onclose = () => {
+      ws = recvInfos((infos) => {
+        setAllInfos(infos);
+        last = Date.now();
+      });
+    }
 
+    getInfos().then((infos) => setAllInfos(infos));
     const hInterval = setInterval(async () => {
       if (Date.now() - last > 70 * 1000) {
         setAllInfos(await getInfos());
@@ -172,12 +179,14 @@ function Device(props: {
   }
 
   let waveColor = "";
-  if (props.info.command === 'wakeup') {
-    status = "Waking up";
-    waveColor = GREEN;
-  } else if (props.info.command === 'shutdown') {
-    status = "Shutting down";
-    waveColor = RED;
+  if (status !== "Unknown") {
+    if (props.info.command === 'wakeup') {
+      status = "Waking up";
+      waveColor = GREEN;
+    } else if (props.info.command === 'shutdown') {
+      status = "Shutting down";
+      waveColor = RED;
+    }
   }
 
   return (
