@@ -31,7 +31,7 @@ function setIpAddress(ip: any) {
 }
 
 export function getLastTime() {
-  return clientIp;
+  return clientLast / 1000;
 }
 
 wsServer.on('connection', async function onConnection(ws, req) {

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Button, Flex, Grid, Heading, Spacer, useToast } from "@chakra-ui/react"
+import { Box, Button, Flex, Grid, Heading, Spacer, Text, useToast } from "@chakra-ui/react"
 import { getInfos, recvInfos, wakeup, shutdown, AllInfos, McuInfo, DeviceInfo } from './http';
 import './Device.css';
 
@@ -97,6 +97,11 @@ function Mcu(props: { info: McuInfo }) {
           content={props.info.status === 'online' ? 'Online' : 'Offline'}
         />
         <Line label="IP" content={props.info.ip || 'x.x.x.x'} />
+        <Line label="T" content={
+          !props.info.last ? '--' :
+            <HeartbeatTimer time={props.info.last} />
+          }
+        />
       </Box>
       <Spacer />
     </Flex>
@@ -147,8 +152,8 @@ function Device(props: {
         duration: 6000,
         isClosable: true,
       });
-      await props.refresh();
     }
+    await props.refresh();
   }
 
   let barColor = GREY;
@@ -166,10 +171,13 @@ function Device(props: {
     status = "Stopped";
   }
 
+  let waveColor = "";
   if (props.info.command === 'wakeup') {
     status = "Waking up";
+    waveColor = GREEN;
   } else if (props.info.command === 'shutdown') {
     status = "Shutting down";
+    waveColor = RED;
   }
 
   return (
@@ -188,10 +196,13 @@ function Device(props: {
       >{props.info.name}</Heading>
       <Box p="16px 24px 0" color={GREY2}>
         <Line
-          label={props.info.command ? <PointWave /> : <Point color={pointColor} />}
+          label={props.info.command ? <PointWave color={waveColor} /> : <Point color={pointColor} />}
           content={status}
         />
         <Line label="IP" content={props.info.ip} />
+        {!props.info.commandAt ? null : <Line label="D" content={
+          <DurationTimer at={props.info.commandAt} />
+        } />}
       </Box>
       <Spacer />
       <Flex direction="row">
@@ -221,7 +232,7 @@ function Line(props: {
 }) {
   return (
     <Flex direction="row" align="center" justify="flex-start">
-      <Box minWidth="24px">{props.label}</Box>
+      <Box minWidth="28px">{props.label}</Box>
       <Box>{props.content}</Box>
     </Flex>
   );
@@ -240,7 +251,7 @@ function Point(props: { color: string }) {
   );
 }
 
-function PointWave() {
+function PointWave(props: { color: string }) {
   return (
     <Box
       position="relative"
@@ -249,10 +260,63 @@ function PointWave() {
       height="12px"
       borderRadius="12px"
       mr="12px"
-      // background={props.color}
-      className='ani'
-    />
+      background={props.color}
+    >
+      {
+        [1,2,3,4].map(idx => (
+          <Flex
+            key={idx}
+            position="absolute"
+            width="112px"
+            height="112px"
+            left="-50px"
+            top="-50px"
+            align="center"
+            justify="center"
+          >
+            <Box borderColor={props.color} borderRadius="112px" className={`wave${idx}`} />
+          </Flex>
+        ))
+      }
+    </Box>
   );
+}
+
+function HeartbeatTimer(props: {
+  time: number
+}) {
+  return (<Text>{
+    new Date(props.time * 1000)
+    .toISOString()
+    .slice(5, 19)
+    .replace('T', ' ')
+    .replace('-', '/')
+  }</Text>);
+}
+
+function DurationTimer(props: {
+  at: number
+}) {
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const dura = now - props.at * 1000;
+  const h = Math.floor(dura / 3600000);
+  const m = Math.floor((dura % 3600000) / 60000);
+  const s = Math.floor((dura % 60000) / 1000);
+  const hh = h < 10 ? `0${h}` : h;
+  const mm = m < 10 ? `0${m}` : m;
+  const ss = s < 10 ? `0${s}` : s;
+
+  return (<Text>{
+    `${hh}:${mm}:${ss}`
+  }</Text>);
 }
 
 export default Devices;

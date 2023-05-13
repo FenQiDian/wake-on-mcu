@@ -1,11 +1,34 @@
-@keyframes ani {
-    0% {background-color: #ef476f;}
-    50% {background-color: #06d6a0;}
-    100% {background-color: #ef476f;}
+@keyframes wave {
+    0% {
+        width: 8px;
+        height: 8px;
+        border-width: 4px;
+        opacity: 1;
+    }
+    100% {
+        width: 60px;
+        height: 60px;
+        border-width: 1px;
+        opacity: 0;
+    }
 }
 
-.ani {
-    animation-name: ani;
+.wave1, .wave2, .wave3, .wave4 {
+    animation-name: wave;
+    animation-timing-function: ease-out;
     animation-duration: 2s;
     animation-iteration-count: infinite;
 }
+
+.wave2 {
+    animation-delay: 0.5s;
+}
+
+.wave3 {
+    animation-delay: 1s;
+}
+
+.wave4 {
+    animation-delay: 1.5s;
+}
+

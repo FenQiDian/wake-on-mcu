@@ -39,6 +39,7 @@ export type McuInfo = {
   name: string,
   ip: string,
   status: string,
+  last: number,
 };
 
 export type DeviceInfo = {
@@ -48,6 +49,7 @@ export type DeviceInfo = {
   mac: string,
   status: string,
   command: string,
+  commandAt: number,
 };
 
 export type AllInfos = {
@@ -118,6 +120,7 @@ export async function getInfos(): Promise<AllInfos> {
       name: "MCU",
       ip: res.data.muc.ip,
       status: res.data.muc.status,
+      last: res.data.muc.last,
     },
     devices: Object.values(res.data.devices)
       .map((dev: any) => ({
@@ -127,6 +130,7 @@ export async function getInfos(): Promise<AllInfos> {
         mac: dev.mac,
         status: dev.status,
         command: dev.command,
+        commandAt: dev.commandAt,
       })),
   };
 }
@@ -143,6 +147,7 @@ export function recvInfos(callback: (infos: AllInfos) => void) {
           name: "MCU",
           ip: pkt.data.muc.ip,
           status: pkt.data.muc.status,
+          last: pkt.data.muc.last,
         },
         devices: Object.values(pkt.data.devices)
           .map((dev: any) => ({
