@@ -200,8 +200,8 @@ function Device(props: {
           content={status}
         />
         <Line label="IP" content={props.info.ip} />
-        {!props.info.commandDura ? null : <Line label="D" content={
-          <DurationTimer at={props.info.commandDura} />
+        {!props.info.commandAt ? null : <Line label="D" content={
+          <DurationTimer at={props.info.commandAt} />
         } />}
       </Box>
       <Spacer />
@@ -306,7 +306,7 @@ function DurationTimer(props: {
     return () => clearInterval(timer);
   }, []);
 
-  const dura = now - props.at * 1000;
+  const dura = Math.max(now - props.at * 1000, 0);
   const h = Math.floor(dura / 3600000);
   const m = Math.floor((dura % 3600000) / 60000);
   const s = Math.floor((dura % 60000) / 1000);

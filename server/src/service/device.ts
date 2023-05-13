@@ -68,14 +68,14 @@ export function listDevices(): Promise<Array<any>> {
       const status = row.lastRunning > row.lastStopped && row.lastRunning > now - OFFLINE_TIMEOUT ?
         'running' : 'stopped';
       let command = '';
-      let commandDura = 0;
+      let commandAt = 0;
       if (row.shutdownAt) {
         command = 'shutdown';
-        commandDura = Math.round(Date.now() / 1000) - row.shutdownAt;
+        commandAt = row.shutdownAt;
       }
       if (row.wakeupAt) {
         command = 'wakeup';
-        commandDura = Math.round(Date.now() / 1000) - row.wakeupAt;
+        commandAt = row.wakeupAt;
       }
 
       devices.push({
@@ -85,7 +85,7 @@ export function listDevices(): Promise<Array<any>> {
         mac: DEVICES[row.name]?.mac || '',
         status,
         command,
-        commandDura,
+        commandAt,
       });
     }, (err) => err ? reject(err) : resolve(devices));
   });
