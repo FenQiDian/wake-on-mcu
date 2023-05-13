@@ -200,8 +200,8 @@ function Device(props: {
           content={status}
         />
         <Line label="IP" content={props.info.ip} />
-        {!props.info.commandAt ? null : <Line label="D" content={
-          <DurationTimer at={props.info.commandAt} />
+        {!props.info.commandDura ? null : <Line label="D" content={
+          <DurationTimer at={props.info.commandDura} />
         } />}
       </Box>
       <Spacer />

@@ -4,6 +4,7 @@ import errno
 import random
 import re
 import socket
+import ssl
 import struct
 import uasyncio.core
 import uasyncio.stream
@@ -82,24 +83,30 @@ async def connect(url, headers=None):
     return WebsocketClient(stream)
 
 # open_connection with ssl support
-def _open_connection(host, port, ssl=False):
-    ai = socket.getaddrinfo(host, port, 0, socket.SOCK_STREAM)[0]
-    sock = socket.socket(ai[0], ai[1], ai[2])
-    sock.setblocking(False)
+def _open_connection(host, port, wss=False):
+    sock = None
     try:
-        sock.connect(ai[-1])
-    except OSError as err:
-        if err.errno != errno.EINPROGRESS:
-            raise
+        ai = socket.getaddrinfo(host, port, 0, socket.SOCK_STREAM)[0]
+        sock = socket.socket(ai[0], ai[1], ai[2])
+        sock.setblocking(False)
+        try:
+            sock.connect(ai[-1])
+        except OSError as err:
+            if err.errno != errno.EINPROGRESS:
+                raise
 
-    if ssl:
-        import ssl
-        sock = ssl.wrap_socket(sock, server_hostname=host)
+        if wss:
+            sock = ssl.wrap_socket(sock, server_hostname=host)
 
-    stream = uasyncio.stream.Stream(sock)
-    yield uasyncio.core._io_queue.queue_write(sock)
-    U.log_info('_open_connection', 'yield & return')
-    return stream
+        stream = uasyncio.stream.Stream(sock)
+        yield uasyncio.core._io_queue.queue_write(sock)
+        U.log_info('_open_connection', 'yield & return')
+        return stream
+
+    except Exception:
+        if sock:
+            sock.close()
+        raise
 
 class WebsocketClient:
     def __init__(self, stream):

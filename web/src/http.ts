@@ -49,7 +49,7 @@ export type DeviceInfo = {
   mac: string,
   status: string,
   command: string,
-  commandAt: number,
+  commandDura: number,
 };
 
 export type AllInfos = {
@@ -130,7 +130,7 @@ export async function getInfos(): Promise<AllInfos> {
         mac: dev.mac,
         status: dev.status,
         command: dev.command,
-        commandAt: dev.commandAt,
+        commandDura: dev.commandDura,
       })),
   };
 }
@@ -157,7 +157,7 @@ export function recvInfos(callback: (infos: AllInfos) => void) {
             mac: dev.mac,
             status: dev.status,
             command: dev.command,
-            commandAt: dev.commandAt,
+            commandDura: dev.commandDura,
           })),
       });
     }

@@ -31,6 +31,7 @@ class Server:
             errno.ENOTCONN,
             118,
             119,
+            -29312,
         )
         self._conn_err = False
 
