@@ -103,8 +103,8 @@ function Mcu(props: { info: McuInfo }) {
           label={<Point color={props.info.status === 'online' ? GREEN : RED} />}
           content={props.info.status === 'online' ? 'Online' : 'Offline'}
         />
-        <Line label="IP" content={props.info.ip || 'x.x.x.x'} />
-        <Line label="T" content={
+        <Line label="IP Address" content={props.info.ip || 'x.x.x.x'} />
+        <Line label="Heartbeat" content={
           !props.info.last ? '--' :
             <HeartbeatTimer time={props.info.last} />
           }
@@ -208,8 +208,8 @@ function Device(props: {
           label={props.info.command ? <PointWave color={waveColor} /> : <Point color={pointColor} />}
           content={status}
         />
-        <Line label="IP" content={props.info.ip} />
-        {!props.info.commandAt ? null : <Line label="D" content={
+        <Line label="IP Address" content={props.info.ip} />
+        {!props.info.commandAt ? null : <Line label="Duration" content={
           <DurationTimer at={props.info.commandAt} />
         } />}
       </Box>
@@ -241,7 +241,8 @@ function Line(props: {
 }) {
   return (
     <Flex direction="row" align="center" justify="flex-start">
-      <Box minWidth="28px">{props.label}</Box>
+      <Box>{props.label}</Box>
+      <Box width="15px"></Box>
       <Box>{props.content}</Box>
     </Flex>
   );
@@ -254,7 +255,6 @@ function Point(props: { color: string }) {
       width="12px"
       height="12px"
       borderRadius="12px"
-      mr="12px"
       background={props.color}
     />
   );
@@ -268,7 +268,6 @@ function PointWave(props: { color: string }) {
       width="12px"
       height="12px"
       borderRadius="12px"
-      mr="12px"
       background={props.color}
     >
       {
@@ -294,8 +293,9 @@ function PointWave(props: { color: string }) {
 function HeartbeatTimer(props: {
   time: number
 }) {
+  const time = new Date(props.time * 1000);
   return (<Text>{
-    new Date(props.time * 1000)
+    new Date(+time - time.getTimezoneOffset() * 60 * 1000)
     .toISOString()
     .slice(5, 19)
     .replace('T', ' ')

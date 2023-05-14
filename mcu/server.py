@@ -106,6 +106,7 @@ class Server:
                 U.log_dbg('Server.send', 'heartbeat loss')
                 self._ws.close()
                 self._ws = None
+                self._led.duty(50)
                 return False
 
             msg = json.dumps(pkt)
