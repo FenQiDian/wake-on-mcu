@@ -1,0 +1,13 @@
+# nodejs
+node_modules
+bin
+*.db
+
+# python
+.idea
+venv
+*.mpy
+*.bin
+
+#rust
+target
