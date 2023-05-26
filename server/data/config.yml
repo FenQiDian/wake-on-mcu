@@ -1,0 +1,16 @@
+DEBUG_LOG: true
+
+SERVER_TOKEN_KEY: "your-server-key"
+SERVER_TOKEN_EXPIRED: 300
+
+TIAN_API_KEY: ""
+TIME_ZONE: Asia/Shanghai
+
+DEVICES:
+- name: Name
+  wom: true
+  ip: 192.168.0.100
+  mac: "00:11:22:DD:EE:FFF"
+  workday: [+18:30, -1:00]
+  holiday: [+9:00, -2:00]
+  anyday: [+9:00, -2:00]
